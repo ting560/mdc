@@ -1,18 +1,20 @@
 <!DOCTYPE html>
-<html>
+<html lang="pt-br">
 <head>
-    <title>Stream Player</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Player de Transmissão</title>
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <style>
-        body { margin: 0; background: #000; display: flex; justify-content: center; }
-        video { width: 100%; max-width: 800px; height: auto; }
+        body { margin: 0; background: #000; height: 100vh; display: flex; align-items: center; justify-content: center; }
+        video { width: 100%; max-width: 900px; border: 2px solid #333; }
     </style>
 </head>
 <body>
     <video id="video" controls autoplay></video>
     <script>
         var video = document.getElementById('video');
-        // O link agora aponta para a sua API interna no Vercel
+        // Usamos o caminho da nossa função proxy que criaremos abaixo
         var videoSrc = '/api/proxy'; 
 
         if (Hls.isSupported()) {
