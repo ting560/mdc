@@ -131,6 +131,21 @@
     let lastCurrentTime = 0;
     let currentChannelUrl = null;
     let currentChannelElement = null;
+    let reloadTimeout = null; // para evitar recargas múltiplas
+
+    // Função para limpar tudo antes de recarregar
+    function cleanup() {
+        if (stallInterval) clearInterval(stallInterval);
+        stallInterval = null;
+        if (reloadTimeout) clearTimeout(reloadTimeout);
+        reloadTimeout = null;
+        if (player) {
+            player.pause();
+            player.unload();
+            player.destroy();
+            player = null;
+        }
+    }
 
     async function fetchM3U() {
         const url = "https://raw.githubusercontent.com/ting560/tv/refs/heads/main/minha_lista_canais.m3u";
@@ -172,14 +187,10 @@
     }
 
     function abrirRadio() {
-        if (stallInterval) clearInterval(stallInterval);
-        stallInterval = null;
-        if (player) { player.pause(); player.unload(); player.destroy(); player = null; }
-        
+        cleanup();
         videoElement.style.display = 'none';
         contentArea.innerHTML = '<iframe src="https://www.radiopositivafm.com.br/play/"></iframe>';
         if(window.innerWidth <= 768) sidebar.classList.remove('open');
-        
         currentChannelUrl = null;
         currentChannelElement = null;
     }
@@ -187,8 +198,13 @@
     // Função para recarregar o stream atual (chama playCanal novamente)
     function reloadStream() {
         if (!currentChannelUrl || !currentChannelElement) return;
-        console.log('Recarregando canal automaticamente...');
-        playCanal(currentChannelUrl, currentChannelElement);
+        // Evita múltiplas chamadas de recarga simultâneas
+        if (reloadTimeout) return;
+        reloadTimeout = setTimeout(() => {
+            reloadTimeout = null;
+            console.log('Recarregando canal automaticamente...');
+            playCanal(currentChannelUrl, currentChannelElement);
+        }, 100);
     }
 
     // Função principal para tocar um canal (agora assíncrona)
@@ -197,15 +213,8 @@
         currentChannelUrl = url;
         currentChannelElement = el;
 
-        // Limpa o monitoramento antigo e destrói player anterior
-        if (stallInterval) clearInterval(stallInterval);
-        stallInterval = null;
-        if (player) {
-            player.pause();
-            player.unload();
-            player.destroy();
-            player = null;
-        }
+        // Limpa tudo
+        cleanup();
 
         // Prepara a interface
         contentArea.innerHTML = '';
@@ -222,11 +231,14 @@
             return;
         }
 
+        // Adiciona um parâmetro aleatório para evitar cache no proxy
+        const proxyUrl = `/api/proxy?url=${encodeURIComponent(url)}&_=${Date.now()}`;
+
         // Cria o novo player
         player = mpegts.createPlayer({ 
             type: 'mse', 
             isLive: true, 
-            url: `/api/proxy?url=${encodeURIComponent(url)}` 
+            url: proxyUrl
         });
 
         // Tratamento de erro: tenta recarregar
@@ -244,16 +256,14 @@
             try {
                 await player.play();
                 console.log('Play iniciado com sucesso');
-                break; // Sai do loop se conseguiu
+                break;
             } catch (err) {
                 console.warn(`Tentativa ${i+1} de play falhou:`, err);
                 if (i === maxRetries - 1) {
-                    // Se falhou todas as tentativas, recarrega o canal
                     console.error('Não foi possível iniciar a reprodução após várias tentativas. Recarregando...');
                     reloadStream();
                     return;
                 }
-                // Aguarda 1 segundo antes de tentar novamente
                 await new Promise(r => setTimeout(r, 1000));
             }
         }
@@ -267,9 +277,9 @@
             const currentTime = videoElement.currentTime;
             if (currentTime === lastCurrentTime) {
                 stallCount++;
-                // Se ficou parado por 3 segundos (3 checks de 1s), recarrega
-                if (stallCount >= 3) {
-                    console.log('Vídeo parado por 3 segundos, recarregando...');
+                // Se ficou parado por 2 segundos (2 checks de 1s), recarrega
+                if (stallCount >= 2) {
+                    console.log('Vídeo parado por 2 segundos, recarregando...');
                     reloadStream();
                 }
             } else {
@@ -277,6 +287,22 @@
                 lastCurrentTime = currentTime;
             }
         }, 1000);
+
+        // Também escuta o evento de stalled do vídeo (falta de dados)
+        videoElement.addEventListener('stalled', onStalled);
+        function onStalled() {
+            console.log('Evento stalled disparado, recarregando...');
+            videoElement.removeEventListener('stalled', onStalled);
+            reloadStream();
+        }
+
+        // Timeout de segurança: se após 10 segundos o currentTime ainda for 0, recarrega
+        setTimeout(() => {
+            if (videoElement && videoElement.currentTime === 0 && !videoElement.paused) {
+                console.log('Timeout de inicialização, recarregando...');
+                reloadStream();
+            }
+        }, 10000);
     }
 
     function toggleTheme() {
