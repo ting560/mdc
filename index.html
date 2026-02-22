@@ -13,7 +13,6 @@
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { background: #000; color: #fff; font-family: sans-serif; overflow: hidden; display: flex; height: 100vh; width: 100vw; }
 
-        /* Sidebar com Scroll Visível */
         #sidebar { 
             position: fixed; top: 0; left: 0; width: 300px; height: 100%; 
             background: var(--sidebar); border-right: 1px solid var(--border);
@@ -28,20 +27,13 @@
 
         .header { padding: 15px; border-bottom: 1px solid var(--border); }
         
-        /* Container da Lista com Scroll Habilitado */
         #canal-list-container { 
-            flex: 1; 
-            overflow-y: scroll !important; /* Força a barra de rolagem */
-            padding: 10px; 
-            background: #000;
-            display: block;
+            flex: 1; overflow-y: auto; padding: 10px; background: #000;
         }
 
-        /* Estilo da Barra de Rolagem para aparecer sempre */
-        #canal-list-container::-webkit-scrollbar { width: 10px; display: block; }
-        #canal-list-container::-webkit-scrollbar-track { background: #111; }
-        #canal-list-container::-webkit-scrollbar-thumb { background: #333; border-radius: 5px; border: 2px solid #111; }
-        #canal-list-container::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+        /* Scrollbar visível */
+        #canal-list-container::-webkit-scrollbar { width: 8px; }
+        #canal-list-container::-webkit-scrollbar-thumb { background: #444; border-radius: 4px; }
 
         input#search { 
             width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--border);
@@ -55,11 +47,10 @@
 
         .canal-item { 
             padding: 14px; margin-bottom: 6px; border-radius: 8px; cursor: pointer;
-            font-size: 14px; background: #1a1a1a; border-bottom: 1px solid #222;
+            font-size: 14px; background: #1a1a1a; border: 1px solid transparent;
         }
-        .canal-item.active { background: #004422; color: var(--accent); font-weight: bold; border: 1px solid var(--accent); }
+        .canal-item.active { background: #004422; border-color: var(--accent); color: var(--accent); font-weight: bold; }
 
-        /* Área Principal */
         #main { position: absolute; top: 0; right: 0; width: 100%; height: 100%; background: #000; z-index: 1; }
         @media (min-width: 769px) { #main { width: calc(100% - 300px); } }
 
@@ -99,9 +90,9 @@
 <script>
     let player = null;
     let allChannels = [];
+    let currentUrl = "";
     const videoElement = document.getElementById('videoPlayer');
     const contentArea = document.getElementById('content-area');
-    const sidebar = document.getElementById('sidebar');
 
     async function fetchM3U() {
         try {
@@ -138,41 +129,47 @@
     }
 
     function abrirRadio() {
-        if (player) { player.pause(); player.unload(); }
+        if (player) { player.unload(); player.destroy(); player = null; }
         videoElement.style.display = 'none';
         contentArea.innerHTML = '<iframe src="https://www.radiopositivafm.com.br/play/"></iframe>';
-        if(window.innerWidth <= 768) sidebar.classList.remove('open');
+        if(window.innerWidth <= 768) document.getElementById('sidebar').classList.remove('open');
     }
 
     function playCanal(url, el) {
+        currentUrl = url;
         contentArea.innerHTML = '';
         videoElement.style.display = 'block';
         document.querySelectorAll('.canal-item').forEach(i => i.classList.remove('active'));
-        el.classList.add('active');
-        if(window.innerWidth <= 768) sidebar.classList.remove('open');
+        if(el) el.classList.add('active');
+        if(window.innerWidth <= 768) document.getElementById('sidebar').classList.remove('open');
 
         if (player) { player.unload(); player.detachMediaElement(); player.destroy(); }
 
-        // MODO TURBO ESTABILIZADO (SEM WORKER PARA NÃO DAR ERRO DE URL)
         if (mpegts.getFeatureList().mseLivePlayback) {
-            const proxyUrl = window.location.origin + `/api/proxy?url=${encodeURIComponent(url)}`;
+            const fullUrl = window.location.origin + `/api/proxy?url=${encodeURIComponent(url)}`;
             
-            player = mpegts.createPlayer({
-                type: 'mse', isLive: true, url: proxyUrl
-            }, {
-                enableStashBuffer: false,
-                stashInitialSize: 128,
+            player = mpegts.createPlayer({ type: 'mse', isLive: true, url: fullUrl }, {
+                enableStashBuffer: true,
+                stashInitialSize: 384, // 384KB de respiro para não travar
+                enableWorker: false,
+                lazyLoad: true,
                 liveBufferLatencyChasing: true,
-                liveBufferLatencyMaxLatency: 1.2,
-                liveBufferLatencyMinLatency: 0.3
+                liveBufferLatencyMaxLatency: 2.5, // Máximo 2.5s de atraso (ainda muito rápido)
+                liveBufferLatencyMinLatency: 0.8  // Tenta manter abaixo de 1s
             });
             player.attachMediaElement(videoElement);
             player.load();
             player.play();
+
+            // RECONECTAR SE DER ERRO
+            player.on(mpegts.Events.ERROR, (type, detail) => {
+                console.log("Erro detectado, reconectando...");
+                setTimeout(() => playCanal(currentUrl), 2000);
+            });
         }
     }
 
-    function toggleMenu() { sidebar.classList.toggle('open'); }
+    function toggleMenu() { document.getElementById('sidebar').classList.toggle('open'); }
     fetchM3U();
 </script>
 </body>
