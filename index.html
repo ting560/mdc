@@ -2,7 +2,7 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Stream Master</title>
     <script src="https://cdn.jsdelivr.net/npm/mpegts.js@latest/dist/mpegts.js"></script>
     <style>
@@ -15,40 +15,39 @@
             --accent: #0088ff; --hover: #e0e0e0; --border: #ccc;
         }
 
-        /* Reset e Estrutura Básica */
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { 
             background: var(--bg); color: var(--text); 
             font-family: 'Segoe UI', sans-serif; 
             display: flex; height: 100vh; width: 100vw; 
-            overflow: hidden; 
+            overflow: hidden; position: fixed;
         }
 
-        /* Sidebar - Ajustada para Rolagem */
+        /* Sidebar - Menu Lateral */
         #sidebar { 
             width: 320px; min-width: 320px; 
             background: var(--sidebar); border-right: 1px solid var(--border);
             display: flex; flex-direction: column; 
-            height: 100%; z-index: 10;
+            height: 100%; z-index: 999;
+            transition: transform 0.3s ease-in-out;
         }
+        
         .header { padding: 15px; border-bottom: 1px solid var(--border); }
         
         #canal-list-container { 
             flex: 1; 
-            overflow-y: auto; /* Força a barra de rolagem aqui */
+            overflow-y: auto; 
             padding: 10px;
-            -webkit-overflow-scrolling: touch; /* Melhora rolagem no iPhone */
+            -webkit-overflow-scrolling: touch;
         }
 
-        /* Customização da Barra de Rolagem */
-        #canal-list-container::-webkit-scrollbar { width: 8px; }
-        #canal-list-container::-webkit-scrollbar-track { background: var(--sidebar); }
-        #canal-list-container::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
-        #canal-list-container::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+        /* Scrollbar */
+        #canal-list-container::-webkit-scrollbar { width: 6px; }
+        #canal-list-container::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
 
         input#search { 
-            width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--border);
-            background: var(--bg); color: var(--text); margin-top: 10px; outline: none;
+            width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--border);
+            background: var(--bg); color: var(--text); margin-top: 10px; outline: none; font-size: 16px;
         }
 
         .btn-radio {
@@ -58,45 +57,53 @@
         }
 
         .canal-item { 
-            padding: 12px; margin-bottom: 5px; border-radius: 6px; cursor: pointer;
-            font-size: 14px; border-bottom: 1px solid var(--border);
-            word-break: break-all;
+            padding: 14px; margin-bottom: 8px; border-radius: 8px; cursor: pointer;
+            font-size: 14px; border: 1px solid transparent; background: rgba(255,255,255,0.03);
         }
         .canal-item:hover { background: var(--hover); }
-        .canal-item.active { background: var(--accent); color: #000; font-weight: bold; }
+        .canal-item.active { background: var(--accent); color: #000; font-weight: bold; border-color: var(--accent); }
 
         /* Área Principal */
-        #main { flex: 1; position: relative; background: #000; height: 100%; }
+        #main { flex: 1; position: relative; background: #000; height: 100%; z-index: 1; }
         
-        iframe, video { width: 100%; height: 100%; border: none; position: absolute; top: 0; left: 0; }
+        #content-area, video { width: 100%; height: 100%; border: none; position: absolute; top: 0; left: 0; }
         video { object-fit: contain; display: none; background: #000; }
 
+        /* Botão Menu Mobile */
         #menu-toggle { 
-            display: none; position: absolute; top: 10px; left: 10px; 
-            z-index: 100; padding: 10px; background: var(--accent); 
-            color: #000; border: none; cursor: pointer; border-radius: 5px; 
+            display: none; position: absolute; top: 15px; left: 15px; 
+            z-index: 1000; padding: 12px 18px; background: var(--accent); 
+            color: #000; border: none; cursor: pointer; border-radius: 50px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5); font-weight: bold;
         }
 
-        /* Responsividade Mobile */
+        /* Responsividade Mobile Extrema */
         @media (max-width: 768px) {
             #sidebar { 
-                position: absolute; left: -100%; width: 80%; height: 100%; 
-                transition: transform 0.3s ease;
+                position: fixed; 
+                left: 0;
+                transform: translateX(-100%);
+                width: 280px;
+                min-width: 280px;
+                box-shadow: 10px 0 30px rgba(0,0,0,0.8);
             }
-            #sidebar.open { transform: translateX(100%); }
+            #sidebar.open { transform: translateX(0); }
             #menu-toggle { display: block; }
+            
+            /* Ajuste para o player não ficar atrás do botão no mobile */
+            video { padding-top: 0; }
         }
     </style>
 </head>
 <body data-theme="dark">
 
-<button id="menu-toggle" onclick="toggleMenu()">☰ CANAIS</button>
+<button id="menu-toggle" onclick="toggleMenu(event)">☰ CANAIS</button>
 
 <aside id="sidebar">
     <div class="header">
         <div style="display:flex; justify-content:space-between; align-items:center;">
-            <h3 style="font-size: 16px;">IPTV E Radio</h3>
-            <button onclick="toggleTheme()" style="background:none; border:none; cursor:pointer; font-size:18px;">🌓</button>
+            <h3 style="font-size: 16px; letter-spacing: 1px;">TV E IPTV</h3>
+            <button onclick="toggleTheme()" style="background:none; border:none; cursor:pointer; font-size:20px;">🌓</button>
         </div>
         <input type="text" id="search" placeholder="🔍 Buscar canal..." oninput="filtrarCanais()">
     </div>
@@ -107,9 +114,9 @@
     </div>
 </aside>
 
-<main id="main">
+<main id="main" onclick="closeMenuIfOpen()">
     <div id="content-area" style="width:100%; height:100%;">
-        <iframe src="https://www.radiopositivafm.com.br/play/"></iframe>
+        <iframe id="radio-frame" src="https://www.radiopositivafm.com.br/play/"></iframe>
     </div>
     <video id="videoPlayer" controls playsinline></video>
 </main>
@@ -119,6 +126,7 @@
     let allChannels = [];
     const videoElement = document.getElementById('videoPlayer');
     const contentArea = document.getElementById('content-area');
+    const sidebar = document.getElementById('sidebar');
 
     async function fetchM3U() {
         const url = "https://raw.githubusercontent.com/ting560/tv/refs/heads/main/minha_lista_canais.m3u";
@@ -162,18 +170,18 @@
     function abrirRadio() {
         if (player) { player.pause(); player.unload(); }
         videoElement.style.display = 'none';
-        contentArea.innerHTML = '<iframe src="https://www.radiopositivafm.com.br/play/"></iframe>';
+        contentArea.innerHTML = '<iframe id="radio-frame" src="https://www.radiopositivafm.com.br/play/"></iframe>';
         document.querySelectorAll('.canal-item').forEach(i => i.classList.remove('active'));
-        if(window.innerWidth <= 768) toggleMenu();
+        closeMenuIfOpen();
     }
 
     function playCanal(url, el) {
-        contentArea.innerHTML = ''; // Mata o iframe
+        contentArea.innerHTML = '';
         videoElement.style.display = 'block';
 
         document.querySelectorAll('.canal-item').forEach(i => i.classList.remove('active'));
         el.classList.add('active');
-        if(window.innerWidth <= 768) toggleMenu();
+        closeMenuIfOpen();
 
         if (player) { player.unload(); player.detachMediaElement(); player.destroy(); }
 
@@ -194,8 +202,15 @@
         document.body.dataset.theme = document.body.dataset.theme === 'dark' ? 'light' : 'dark';
     }
 
-    function toggleMenu() {
-        document.getElementById('sidebar').classList.toggle('open');
+    function toggleMenu(event) {
+        if(event) event.stopPropagation();
+        sidebar.classList.toggle('open');
+    }
+
+    function closeMenuIfOpen() {
+        if (window.innerWidth <= 768 && sidebar.classList.contains('open')) {
+            sidebar.classList.remove('open');
+        }
     }
 
     fetchM3U();
