@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>POSITIVA IPTV</title>
+    <title>IPTV PRO</title>
     <script src="https://cdn.jsdelivr.net/npm/mpegts.js@latest/dist/mpegts.js"></script>
     <style>
         :root {
@@ -15,38 +15,22 @@
             --accent: #0088ff; --hover: #e0e0e0; --border: #ccc;
         }
 
-        /* Estrutura Base */
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        
-        html, body { 
-            width: 100%; height: 100%; 
-            background: #000; color: var(--text); 
-            font-family: 'Segoe UI', sans-serif; 
-            overflow: hidden; 
-        }
+        html, body { width: 100%; height: 100%; background: #000; color: var(--text); font-family: 'Segoe UI', sans-serif; overflow: hidden; }
 
-        /* Sidebar - Menu Lateral */
         #sidebar { 
-            position: fixed; top: 0; left: 0; 
-            width: 320px; height: 100%; 
+            position: fixed; top: 0; left: 0; width: 320px; height: 100%; 
             background: var(--sidebar); border-right: 1px solid var(--border);
-            display: flex; flex-direction: column; 
-            z-index: 2000; /* Garante que fique na frente */
-            transition: transform 0.3s ease;
+            display: flex; flex-direction: column; z-index: 2000; transition: transform 0.3s ease;
         }
         
-        /* Mobile: Esconde a barra por padrão */
         @media (max-width: 768px) {
             #sidebar { transform: translateX(-100%); width: 280px; }
             #sidebar.open { transform: translateX(0); }
         }
 
         .header { padding: 15px; border-bottom: 1px solid var(--border); }
-        
-        #canal-list-container { 
-            flex: 1; overflow-y: auto; padding: 10px;
-            -webkit-overflow-scrolling: touch;
-        }
+        #canal-list-container { flex: 1; overflow-y: auto; padding: 10px; -webkit-overflow-scrolling: touch; }
 
         input#search { 
             width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--border);
@@ -55,45 +39,26 @@
 
         .btn-radio {
             width: 100%; padding: 12px; background: var(--accent); color: #000;
-            border: none; font-weight: bold; cursor: pointer; border-radius: 6px; 
-            margin-bottom: 15px; font-size: 13px;
+            border: none; font-weight: bold; cursor: pointer; border-radius: 6px; margin-bottom: 15px;
         }
 
         .canal-item { 
             padding: 12px; margin-bottom: 5px; border-radius: 6px; cursor: pointer;
-            font-size: 14px; border-bottom: 1px solid var(--border);
-            background: rgba(255,255,255,0.02);
+            font-size: 14px; border-bottom: 1px solid var(--border); background: rgba(255,255,255,0.02);
         }
-        .canal-item:hover { background: var(--hover); }
         .canal-item.active { background: var(--accent); color: #000; font-weight: bold; }
 
-        /* Área Principal do Conteúdo */
-        #main { 
-            position: absolute; top: 0; right: 0;
-            /* No Desktop, deixa espaço para a sidebar. No Mobile, ocupa tudo. */
-            width: calc(100% - 320px); height: 100%; 
-            background: #000; z-index: 1;
-        }
-        
-        @media (max-width: 768px) {
-            #main { width: 100%; }
-        }
+        #main { position: absolute; top: 0; right: 0; width: calc(100% - 320px); height: 100%; background: #000; z-index: 1; }
+        @media (max-width: 768px) { #main { width: 100%; } }
 
-        #content-area, iframe, video { 
-            width: 100%; height: 100%; border: none; 
-            position: absolute; top: 0; left: 0; 
-        }
-        
+        #content-area, iframe, video { width: 100%; height: 100%; border: none; position: absolute; top: 0; left: 0; }
         video { object-fit: contain; display: none; background: #000; }
 
-        /* Botão Menu Mobile */
         #menu-toggle { 
-            display: none; position: fixed; top: 15px; left: 15px; 
-            z-index: 2100; padding: 10px 20px; background: var(--accent); 
-            color: #000; border: none; cursor: pointer; border-radius: 50px;
-            font-weight: bold; box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            display: none; position: fixed; top: 15px; left: 15px; z-index: 2100; 
+            padding: 10px 20px; background: var(--accent); color: #000; border: none; 
+            cursor: pointer; border-radius: 50px; font-weight: bold;
         }
-
         @media (max-width: 768px) { #menu-toggle { display: block; } }
     </style>
 </head>
@@ -104,12 +69,11 @@
 <aside id="sidebar">
     <div class="header">
         <div style="display:flex; justify-content:space-between; align-items:center;">
-            <h3 style="font-size: 16px;">POSITIVA TV</h3>
+            <h3 style="font-size: 16px;">Radio & TV</h3>
             <button onclick="toggleTheme()" style="background:none; border:none; cursor:pointer; font-size:18px;">🌓</button>
         </div>
         <input type="text" id="search" placeholder="🔍 Buscar canal..." oninput="filtrarCanais()">
     </div>
-    
     <div id="canal-list-container">
         <button class="btn-radio" onclick="abrirRadio()">📻 VOLTAR PARA RÁDIO</button>
         <div id="canal-list">Carregando canais...</div>
@@ -126,6 +90,8 @@
 <script>
     let player = null;
     let allChannels = [];
+    let lastPlayTime = 0;
+    let checkInterval = null;
     const videoElement = document.getElementById('videoPlayer');
     const contentArea = document.getElementById('content-area');
     const sidebar = document.getElementById('sidebar');
@@ -136,9 +102,7 @@
             const res = await fetch(url);
             const data = await res.text();
             parseM3U(data);
-        } catch (err) {
-            document.getElementById('canal-list').innerText = "Erro ao carregar lista.";
-        }
+        } catch (err) { console.error("Erro lista"); }
     }
 
     function parseM3U(content) {
@@ -155,8 +119,7 @@
     }
 
     function renderCanais(list) {
-        const container = document.getElementById('canal-list');
-        container.innerHTML = list.map(c => `
+        document.getElementById('canal-list').innerHTML = list.map(c => `
             <div class="canal-item" onclick="playCanal('${c.url}', this)">
                 📺 ${c.name}
             </div>
@@ -165,11 +128,11 @@
 
     function filtrarCanais() {
         const term = document.getElementById('search').value.toLowerCase();
-        const filtered = allChannels.filter(c => c.name.toLowerCase().includes(term));
-        renderCanais(filtered);
+        renderCanais(allChannels.filter(c => c.name.toLowerCase().includes(term)));
     }
 
     function abrirRadio() {
+        stopAntiStuck();
         if (player) { player.pause(); player.unload(); }
         videoElement.style.display = 'none';
         contentArea.innerHTML = '<iframe src="https://www.radiopositivafm.com.br/play/"></iframe>';
@@ -183,27 +146,51 @@
         el.classList.add('active');
         if(window.innerWidth <= 768) sidebar.classList.remove('open');
 
-        if (player) { player.unload(); player.destroy(); }
+        startPlayer(url);
+    }
+
+    function startPlayer(url) {
+        if (player) { player.unload(); player.detachMediaElement(); player.destroy(); }
 
         if (mpegts.getFeatureList().mseLivePlayback) {
-            player = mpegts.createPlayer({ 
-                type: 'mse', 
-                isLive: true, 
-                url: `/api/proxy?url=${encodeURIComponent(url)}` 
+            player = mpegts.createPlayer({
+                type: 'mse', isLive: true, url: `/api/proxy?url=${encodeURIComponent(url)}`
+            }, {
+                enableStashBuffer: false,
+                stashInitialSize: 128,
+                autoCleanupSourceBuffer: true, // Limpa cache automaticamente
+                autoCleanupMaxBackwardDuration: 60,
+                autoCleanupMinBackwardDuration: 30
             });
             player.attachMediaElement(videoElement);
             player.load();
             player.play();
+
+            startAntiStuck(url);
         }
     }
 
-    function toggleTheme() {
-        document.body.dataset.theme = document.body.dataset.theme === 'dark' ? 'light' : 'dark';
+    // Sistema Anti-Travamento
+    function startAntiStuck(url) {
+        stopAntiStuck();
+        checkInterval = setInterval(() => {
+            if (videoElement.paused) return;
+            
+            // Se o tempo do vídeo não mudou, ele travou
+            if (videoElement.currentTime === lastPlayTime) {
+                console.warn("Travamento detectado. Reiniciando...");
+                startPlayer(url);
+            }
+            lastPlayTime = videoElement.currentTime;
+        }, 4000); // Verifica a cada 4 segundos
     }
 
-    function toggleMenu() {
-        sidebar.classList.toggle('open');
+    function stopAntiStuck() {
+        if (checkInterval) clearInterval(checkInterval);
     }
+
+    function toggleTheme() { document.body.dataset.theme = document.body.dataset.theme === 'dark' ? 'light' : 'dark'; }
+    function toggleMenu() { sidebar.classList.toggle('open'); }
 
     fetchM3U();
 </script>
