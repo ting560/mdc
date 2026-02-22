@@ -3,23 +3,39 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>POSITIVA IPTV - ESTÁVEL</title>
+    <title>IPTV MASTER</title>
     <script src="https://cdn.jsdelivr.net/npm/mpegts.js@latest/dist/mpegts.js"></script>
     <style>
         :root {
-            --bg: #000000; --text: #ffffff; --sidebar: #111111;
-            --accent: #00ff88; --border: #222;
+            --bg: #0f0f0f; --text: #ffffff; --sidebar: #1a1a1a;
+            --accent: #00ff88; --hover: #2a2a2a; --border: #333;
         }
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { background: #000; color: #fff; font-family: sans-serif; overflow: hidden; display: flex; height: 100vh; width: 100vw; }
+        [data-theme="light"] {
+            --bg: #f0f0f0; --text: #1a1a1a; --sidebar: #ffffff;
+            --accent: #0088ff; --hover: #e0e0e0; --border: #ccc;
+        }
 
+        /* Estrutura Base */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        html, body { 
+            width: 100%; height: 100%; 
+            background: #000; color: var(--text); 
+            font-family: 'Segoe UI', sans-serif; 
+            overflow: hidden; 
+        }
+
+        /* Sidebar - Menu Lateral */
         #sidebar { 
-            position: fixed; top: 0; left: 0; width: 300px; height: 100%; 
+            position: fixed; top: 0; left: 0; 
+            width: 320px; height: 100%; 
             background: var(--sidebar); border-right: 1px solid var(--border);
-            z-index: 2000; transition: transform 0.3s ease;
-            display: flex; flex-direction: column;
+            display: flex; flex-direction: column; 
+            z-index: 2000; /* Garante que fique na frente */
+            transition: transform 0.3s ease;
         }
         
+        /* Mobile: Esconde a barra por padrão */
         @media (max-width: 768px) {
             #sidebar { transform: translateX(-100%); width: 280px; }
             #sidebar.open { transform: translateX(0); }
@@ -28,52 +44,72 @@
         .header { padding: 15px; border-bottom: 1px solid var(--border); }
         
         #canal-list-container { 
-            flex: 1; overflow-y: auto; padding: 10px; background: #000;
+            flex: 1; overflow-y: auto; padding: 10px;
+            -webkit-overflow-scrolling: touch;
         }
-
-        /* Scrollbar visível */
-        #canal-list-container::-webkit-scrollbar { width: 8px; }
-        #canal-list-container::-webkit-scrollbar-thumb { background: #444; border-radius: 4px; }
 
         input#search { 
             width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--border);
-            background: #222; color: #fff; margin-top: 10px; outline: none;
+            background: var(--bg); color: var(--text); margin-top: 10px; outline: none;
         }
 
         .btn-radio {
-            width: 100%; padding: 14px; background: var(--accent); color: #000;
-            border: none; font-weight: bold; cursor: pointer; border-radius: 8px; margin-bottom: 15px;
+            width: 100%; padding: 12px; background: var(--accent); color: #000;
+            border: none; font-weight: bold; cursor: pointer; border-radius: 6px; 
+            margin-bottom: 15px; font-size: 13px;
         }
 
         .canal-item { 
-            padding: 14px; margin-bottom: 6px; border-radius: 8px; cursor: pointer;
-            font-size: 14px; background: #1a1a1a; border: 1px solid transparent;
+            padding: 12px; margin-bottom: 5px; border-radius: 6px; cursor: pointer;
+            font-size: 14px; border-bottom: 1px solid var(--border);
+            background: rgba(255,255,255,0.02);
         }
-        .canal-item.active { background: #004422; border-color: var(--accent); color: var(--accent); font-weight: bold; }
+        .canal-item:hover { background: var(--hover); }
+        .canal-item.active { background: var(--accent); color: #000; font-weight: bold; }
 
-        #main { position: absolute; top: 0; right: 0; width: 100%; height: 100%; background: #000; z-index: 1; }
-        @media (min-width: 769px) { #main { width: calc(100% - 300px); } }
+        /* Área Principal do Conteúdo */
+        #main { 
+            position: absolute; top: 0; right: 0;
+            /* No Desktop, deixa espaço para a sidebar. No Mobile, ocupa tudo. */
+            width: calc(100% - 320px); height: 100%; 
+            background: #000; z-index: 1;
+        }
+        
+        @media (max-width: 768px) {
+            #main { width: 100%; }
+        }
 
-        #content-area, iframe, video { width: 100%; height: 100%; border: none; position: absolute; top: 0; left: 0; }
-        video { object-fit: contain; display: none; }
+        #content-area, iframe, video { 
+            width: 100%; height: 100%; border: none; 
+            position: absolute; top: 0; left: 0; 
+        }
+        
+        video { object-fit: contain; display: none; background: #000; }
 
+        /* Botão Menu Mobile */
         #menu-toggle { 
-            display: none; position: fixed; top: 15px; left: 15px; z-index: 2100; 
-            padding: 12px 20px; background: var(--accent); color: #000; border: none; 
-            cursor: pointer; border-radius: 8px; font-weight: bold;
+            display: none; position: fixed; top: 15px; left: 15px; 
+            z-index: 2100; padding: 10px 20px; background: var(--accent); 
+            color: #000; border: none; cursor: pointer; border-radius: 50px;
+            font-weight: bold; box-shadow: 0 4px 15px rgba(0,0,0,0.5);
         }
+
         @media (max-width: 768px) { #menu-toggle { display: block; } }
     </style>
 </head>
-<body>
+<body data-theme="dark">
 
 <button id="menu-toggle" onclick="toggleMenu()">☰ CANAIS</button>
 
 <aside id="sidebar">
     <div class="header">
-        <h3 style="color:var(--accent)">POSITIVA IPTV</h3>
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+            <h3 style="font-size: 16px;">IPTV MASTER</h3>
+            <button onclick="toggleTheme()" style="background:none; border:none; cursor:pointer; font-size:18px;">🌓</button>
+        </div>
         <input type="text" id="search" placeholder="🔍 Buscar canal..." oninput="filtrarCanais()">
     </div>
+    
     <div id="canal-list-container">
         <button class="btn-radio" onclick="abrirRadio()">📻 VOLTAR PARA RÁDIO</button>
         <div id="canal-list">Carregando canais...</div>
@@ -84,22 +120,25 @@
     <div id="content-area">
         <iframe src="https://www.radiopositivafm.com.br/play/"></iframe>
     </div>
-    <video id="videoPlayer" controls autoplay playsinline></video>
+    <video id="videoPlayer" controls playsinline></video>
 </main>
 
 <script>
     let player = null;
     let allChannels = [];
-    let currentUrl = "";
     const videoElement = document.getElementById('videoPlayer');
     const contentArea = document.getElementById('content-area');
+    const sidebar = document.getElementById('sidebar');
 
     async function fetchM3U() {
+        const url = "https://raw.githubusercontent.com/ting560/tv/refs/heads/main/minha_lista_canais.m3u";
         try {
-            const res = await fetch("https://raw.githubusercontent.com/ting560/tv/refs/heads/main/minha_lista_canais.m3u");
+            const res = await fetch(url);
             const data = await res.text();
             parseM3U(data);
-        } catch (err) { console.error("Erro lista"); }
+        } catch (err) {
+            document.getElementById('canal-list').innerText = "Erro ao carregar lista.";
+        }
     }
 
     function parseM3U(content) {
@@ -116,7 +155,8 @@
     }
 
     function renderCanais(list) {
-        document.getElementById('canal-list').innerHTML = list.map(c => `
+        const container = document.getElementById('canal-list');
+        container.innerHTML = list.map(c => `
             <div class="canal-item" onclick="playCanal('${c.url}', this)">
                 📺 ${c.name}
             </div>
@@ -125,51 +165,46 @@
 
     function filtrarCanais() {
         const term = document.getElementById('search').value.toLowerCase();
-        renderCanais(allChannels.filter(c => c.name.toLowerCase().includes(term)));
+        const filtered = allChannels.filter(c => c.name.toLowerCase().includes(term));
+        renderCanais(filtered);
     }
 
     function abrirRadio() {
-        if (player) { player.unload(); player.destroy(); player = null; }
+        if (player) { player.pause(); player.unload(); }
         videoElement.style.display = 'none';
         contentArea.innerHTML = '<iframe src="https://www.radiopositivafm.com.br/play/"></iframe>';
-        if(window.innerWidth <= 768) document.getElementById('sidebar').classList.remove('open');
+        if(window.innerWidth <= 768) sidebar.classList.remove('open');
     }
 
     function playCanal(url, el) {
-        currentUrl = url;
         contentArea.innerHTML = '';
         videoElement.style.display = 'block';
         document.querySelectorAll('.canal-item').forEach(i => i.classList.remove('active'));
-        if(el) el.classList.add('active');
-        if(window.innerWidth <= 768) document.getElementById('sidebar').classList.remove('open');
+        el.classList.add('active');
+        if(window.innerWidth <= 768) sidebar.classList.remove('open');
 
-        if (player) { player.unload(); player.detachMediaElement(); player.destroy(); }
+        if (player) { player.unload(); player.destroy(); }
 
         if (mpegts.getFeatureList().mseLivePlayback) {
-            const fullUrl = window.location.origin + `/api/proxy?url=${encodeURIComponent(url)}`;
-            
-            player = mpegts.createPlayer({ type: 'mse', isLive: true, url: fullUrl }, {
-                enableStashBuffer: true,
-                stashInitialSize: 384, // 384KB de respiro para não travar
-                enableWorker: false,
-                lazyLoad: true,
-                liveBufferLatencyChasing: true,
-                liveBufferLatencyMaxLatency: 2.5, // Máximo 2.5s de atraso (ainda muito rápido)
-                liveBufferLatencyMinLatency: 0.8  // Tenta manter abaixo de 1s
+            player = mpegts.createPlayer({ 
+                type: 'mse', 
+                isLive: true, 
+                url: `/api/proxy?url=${encodeURIComponent(url)}` 
             });
             player.attachMediaElement(videoElement);
             player.load();
             player.play();
-
-            // RECONECTAR SE DER ERRO
-            player.on(mpegts.Events.ERROR, (type, detail) => {
-                console.log("Erro detectado, reconectando...");
-                setTimeout(() => playCanal(currentUrl), 2000);
-            });
         }
     }
 
-    function toggleMenu() { document.getElementById('sidebar').classList.toggle('open'); }
+    function toggleTheme() {
+        document.body.dataset.theme = document.body.dataset.theme === 'dark' ? 'light' : 'dark';
+    }
+
+    function toggleMenu() {
+        sidebar.classList.toggle('open');
+    }
+
     fetchM3U();
 </script>
 </body>
