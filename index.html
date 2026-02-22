@@ -13,17 +13,27 @@
 <body>
     <video id="video" controls autoplay></video>
     <script>
-        var video = document.getElementById('video');
-        // Usamos o caminho da nossa função proxy que criaremos abaixo
-        var videoSrc = '/api/proxy'; 
+    var video = document.getElementById('video');
+    // Chamando o seu proxy da Vercel
+    var videoSrc = '/api/proxy'; 
 
+    if (video.canPlayType('application/vnd.apple.mpegurl')) {
+        // Para Safari/iPhone
+        video.src = videoSrc;
+    } else {
+        // Para Chrome/Firefox usando Hls.js
         if (Hls.isSupported()) {
-            var hls = new Hls();
+            var hls = new Hls({
+                enableWorker: true,
+                lowLatencyMode: true
+            });
             hls.loadSource(videoSrc);
             hls.attachMedia(video);
-        } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-            video.src = videoSrc;
+            hls.on(Hls.Events.ERROR, function (event, data) {
+                console.log("Erro HLS:", data);
+            });
         }
-    </script>
+    }
+</script>
 </body>
 </html>
