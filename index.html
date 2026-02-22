@@ -125,13 +125,14 @@
     const contentArea = document.getElementById('content-area');
     const sidebar = document.getElementById('sidebar');
 
-    // Controle de travamento
+    // Controle de travamento e reconexão preventiva
     let stallInterval = null;
     let stallCount = 0;
     let lastCurrentTime = 0;
     let currentChannelUrl = null;
     let currentChannelElement = null;
-    let reloadTimeout = null; // para evitar recargas múltiplas
+    let reloadTimeout = null;
+    let preventiveTimer = null; // Timer para reconexão aos 4:50
 
     // Função para limpar tudo antes de recarregar
     function cleanup() {
@@ -139,6 +140,8 @@
         stallInterval = null;
         if (reloadTimeout) clearTimeout(reloadTimeout);
         reloadTimeout = null;
+        if (preventiveTimer) clearTimeout(preventiveTimer);
+        preventiveTimer = null;
         if (player) {
             player.pause();
             player.unload();
@@ -303,6 +306,18 @@
                 reloadStream();
             }
         }, 10000);
+
+        // --- NOVO: Reconexão preventiva aos 4 minutos e 50 segundos (290 segundos) ---
+        // Monitora o tempo e agenda uma recarga quando currentTime atingir 290s
+        const preventiveCheck = setInterval(() => {
+            if (videoElement && !videoElement.paused && videoElement.currentTime >= 290) {
+                console.log('Atingiu 4:50, recarregando preventivamente...');
+                clearInterval(preventiveCheck);
+                reloadStream();
+            }
+        }, 1000);
+        // Armazena o intervalo para poder limpá-lo depois
+        preventiveTimer = preventiveCheck;
     }
 
     function toggleTheme() {
