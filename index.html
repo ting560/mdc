@@ -15,7 +15,6 @@
             --accent: #0088ff; --hover: #e0e0e0; --border: #ccc;
         }
 
-        /* Estrutura Base */
         * { margin: 0; padding: 0; box-sizing: border-box; }
         
         html, body { 
@@ -25,17 +24,15 @@
             overflow: hidden; 
         }
 
-        /* Sidebar - Menu Lateral */
         #sidebar { 
             position: fixed; top: 0; left: 0; 
             width: 320px; height: 100%; 
             background: var(--sidebar); border-right: 1px solid var(--border);
             display: flex; flex-direction: column; 
-            z-index: 2000; /* Garante que fique na frente */
+            z-index: 2000; 
             transition: transform 0.3s ease;
         }
         
-        /* Mobile: Esconde a barra por padrão */
         @media (max-width: 768px) {
             #sidebar { transform: translateX(-100%); width: 280px; }
             #sidebar.open { transform: translateX(0); }
@@ -67,10 +64,8 @@
         .canal-item:hover { background: var(--hover); }
         .canal-item.active { background: var(--accent); color: #000; font-weight: bold; }
 
-        /* Área Principal do Conteúdo */
         #main { 
             position: absolute; top: 0; right: 0;
-            /* No Desktop, deixa espaço para a sidebar. No Mobile, ocupa tudo. */
             width: calc(100% - 320px); height: 100%; 
             background: #000; z-index: 1;
         }
@@ -86,7 +81,17 @@
         
         video { object-fit: contain; display: none; background: #000; }
 
-        /* Botão Menu Mobile */
+        /* Loader Overlay */
+        #loader {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8); display: none; justify-content: center;
+            align-items: center; color: #fff; z-index: 10; font-size: 1.2rem;
+            flex-direction: column;
+        }
+        #loader.active { display: flex; }
+        .spinner { border: 4px solid rgba(255,255,255,0.3); border-top: 4px solid #00ff88; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin-bottom: 10px; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
         #menu-toggle { 
             display: none; position: fixed; top: 15px; left: 15px; 
             z-index: 2100; padding: 10px 20px; background: var(--accent); 
@@ -117,8 +122,14 @@
 </aside>
 
 <main id="main">
+    <!-- Loader visual -->
+    <div id="loader">
+        <div class="spinner"></div>
+        <span>Carregando Stream...</span>
+    </div>
+
     <div id="content-area">
-        <iframe src="https://www.radiopositivafm.com.br/play/"></iframe>
+        <iframe src="https://www.radiopositivafm.com.br/play/" allow="autoplay"></iframe>
     </div>
     <video id="videoPlayer" controls playsinline></video>
 </main>
@@ -126,9 +137,14 @@
 <script>
     let player = null;
     let allChannels = [];
+    let currentUrl = null;
+    let retryCount = 0;
+    const MAX_RETRIES = 3; // Tentativas de reconexão automática
+
     const videoElement = document.getElementById('videoPlayer');
     const contentArea = document.getElementById('content-area');
     const sidebar = document.getElementById('sidebar');
+    const loader = document.getElementById('loader');
 
     async function fetchM3U() {
         const url = "https://raw.githubusercontent.com/ting560/tv/refs/heads/main/minha_lista_canais.m3u";
@@ -169,32 +185,106 @@
         renderCanais(filtered);
     }
 
+    function showLoader(show) {
+        loader.className = show ? 'active' : '';
+    }
+
     function abrirRadio() {
-        if (player) { player.pause(); player.unload(); }
+        if (player) { player.pause(); player.unload(); player.destroy(); player = null; }
         videoElement.style.display = 'none';
-        contentArea.innerHTML = '<iframe src="https://www.radiopositivafm.com.br/play/"></iframe>';
+        contentArea.innerHTML = '<iframe src="https://www.radiopositivafm.com.br/play/" allow="autoplay"></iframe>';
         if(window.innerWidth <= 768) sidebar.classList.remove('open');
     }
 
     function playCanal(url, el) {
+        // Visual: atualiza lista e mostra loader
+        document.querySelectorAll('.canal-item').forEach(i => i.classList.remove('active'));
+        if(el) el.classList.add('active');
+        if(window.innerWidth <= 768) sidebar.classList.remove('open');
+        
         contentArea.innerHTML = '';
         videoElement.style.display = 'block';
-        document.querySelectorAll('.canal-item').forEach(i => i.classList.remove('active'));
-        el.classList.add('active');
-        if(window.innerWidth <= 768) sidebar.classList.remove('open');
+        showLoader(true);
+        
+        currentUrl = url;
+        retryCount = 0;
 
-        if (player) { player.unload(); player.destroy(); }
+        // Destrói player antigo se existir
+        if (player) {
+            player.unload();
+            player.destroy();
+            player = null;
+        }
 
+        iniciarPlayer(url);
+    }
+
+    function iniciarPlayer(url) {
         if (mpegts.getFeatureList().mseLivePlayback) {
-            player = mpegts.createPlayer({ 
-                type: 'mse', 
-                isLive: true, 
-                url: `/api/proxy?url=${encodeURIComponent(url)}` 
+            
+            // Configurações Estáveis para IPTV
+            player = mpegts.createPlayer({
+                type: 'mse',
+                isLive: true,
+                url: `/api/proxy?url=${encodeURIComponent(url)}`,
+                cors: true,
+                withCredentials: false
+            }, {
+                // Configurações críticas para não travar
+                enableWorker: true,           // Usa thread separada (melhor performance)
+                enableStashBuffer: false,     // Desativa buffer de stash (menos latência/memória)
+                liveBufferLatencyChasing: true, // Descarta frames antigos para acompanhar o vivo
+                lazyLoadMaxDuration: 180,     // Máximo de buffer em segundos
+                liveSyncDurationCount: 2,     // Sincronização mais agressiva com o vivo
+                seekType: 'range'             // Melhor para servidores modernos
             });
+
             player.attachMediaElement(videoElement);
             player.load();
-            player.play();
+            
+            // Eventos de controle
+            player.on(mpegfs.Events.LOADING_COMPLETE, () => {
+                showLoader(false);
+            });
+
+            player.on(mpegts.Events.ERROR, (errType, errDetail) => {
+                console.error("Erro no Player:", errType, errDetail);
+                tentarReconectar();
+            });
+            
+            videoElement.play().catch(() => {
+                // Autoplay bloqueado pelo navegador, precisa de interação do usuário
+                // O usuário geralmente clica no play do vídeo central
+            });
+
+        } else {
+            alert("Seu navegador não suporta reprodução de vídeo ao vivo via MSE.");
         }
+    }
+
+    function tentarReconectar() {
+        if (retryCount < MAX_RETRIES && currentUrl) {
+            retryCount++;
+            console.log(`Tentando reconectar... (${retryCount}/${MAX_RETRIES})`);
+            showLoader(true);
+            showLoaderText(`Reconectando... (${retryCount})`);
+            
+            setTimeout(() => {
+                if(player) {
+                    player.unload();
+                    player.destroy();
+                }
+                iniciarPlayer(currentUrl);
+            }, 2000);
+        } else {
+            showLoader(false);
+            alert("Não foi possível manter a conexão com o canal.");
+        }
+    }
+
+    function showLoaderText(txt) {
+        const span = loader.querySelector('span');
+        if(span) span.innerText = txt;
     }
 
     function toggleTheme() {
