@@ -1,21 +1,24 @@
 const http = require('http');
 
 export default function handler(req, res) {
-  // A URL real do vídeo (ajuste se o link mudou)
   const url = 'http://live.sinalmycn.com/11000/mpegts';
 
-  http.get(url, (response) => {
-    // Copia os headers importantes da origem
-    res.setHeader('Content-Type', 'video/mp2t'); 
+  const request = http.get(url, (response) => {
+    // Headers vitais para o navegador aceitar o stream como vídeo
+    res.setHeader('Content-Type', 'video/mp2t');
     res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-    res.setHeader('Pragma', 'no-cache');
-    res.setHeader('Expires', '0');
+    res.setHeader('Connection', 'keep-alive');
 
-    // Repassa o vídeo em tempo real
+    // Repassa os dados assim que chegam
     response.pipe(res);
-  }).on('error', (e) => {
-    console.error("Erro no Proxy:", e.message);
-    res.status(500).send("Erro ao carregar stream");
+  });
+
+  request.on('error', (e) => {
+    res.status(500).end();
+  });
+
+  // Se o usuário fechar a página, interrompe a busca no servidor original
+  req.on('close', () => {
+    request.destroy();
   });
 }
