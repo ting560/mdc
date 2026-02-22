@@ -31,11 +31,10 @@
             width: 320px; height: 100%; 
             background: var(--sidebar); border-right: 1px solid var(--border);
             display: flex; flex-direction: column; 
-            z-index: 2000; /* Garante que fique na frente */
+            z-index: 2000;
             transition: transform 0.3s ease;
         }
         
-        /* Mobile: Esconde a barra por padrão */
         @media (max-width: 768px) {
             #sidebar { transform: translateX(-100%); width: 280px; }
             #sidebar.open { transform: translateX(0); }
@@ -70,7 +69,6 @@
         /* Área Principal do Conteúdo */
         #main { 
             position: absolute; top: 0; right: 0;
-            /* No Desktop, deixa espaço para a sidebar. No Mobile, ocupa tudo. */
             width: calc(100% - 320px); height: 100%; 
             background: #000; z-index: 1;
         }
@@ -130,6 +128,13 @@
     const contentArea = document.getElementById('content-area');
     const sidebar = document.getElementById('sidebar');
 
+    // --- NOVAS VARIÁVEIS PARA CONTROLE DE TRAVAMENTO ---
+    let stallInterval = null;          // intervalo de verificação
+    let stallCount = 0;                // quantas vezes seguidas o tempo não avançou
+    let lastCurrentTime = 0;            // último tempo registrado
+    let currentChannelUrl = null;       // url do canal atual (para recarregar)
+    let currentChannelEl = null;        // elemento li ativo (para manter a classe)
+
     async function fetchM3U() {
         const url = "https://raw.githubusercontent.com/ting560/tv/refs/heads/main/minha_lista_canais.m3u";
         try {
@@ -170,19 +175,84 @@
     }
 
     function abrirRadio() {
-        if (player) { player.pause(); player.unload(); }
+        // Para qualquer verificação de travamento
+        if (stallInterval) clearInterval(stallInterval);
+        stallInterval = null;
+        if (player) { player.pause(); player.unload(); player.destroy(); player = null; }
+        
         videoElement.style.display = 'none';
         contentArea.innerHTML = '<iframe src="https://www.radiopositivafm.com.br/play/"></iframe>';
         if(window.innerWidth <= 768) sidebar.classList.remove('open');
+        
+        currentChannelUrl = null;
+        currentChannelEl = null;
+    }
+
+    // --- NOVA FUNÇÃO PARA RECARREGAR O STREAM QUANDO TRAVAR ---
+    function reloadStream() {
+        if (!currentChannelUrl) return; // não há canal ativo
+
+        console.log('Recarregando stream por travamento...');
+        if (stallInterval) clearInterval(stallInterval);
+        stallInterval = null;
+        if (player) {
+            player.unload();
+            player.destroy();
+            player = null;
+        }
+
+        // Recria o player com a mesma url
+        if (mpegts.getFeatureList().mseLivePlayback) {
+            player = mpegts.createPlayer({ 
+                type: 'mse', 
+                isLive: true, 
+                url: `/api/proxy?url=${encodeURIComponent(currentChannelUrl)}` 
+            });
+
+            // Reatribui o evento de erro
+            player.on('error', (err) => {
+                console.error('Erro no player, recarregando...', err);
+                reloadStream();
+            });
+
+            player.attachMediaElement(videoElement);
+            player.load();
+            player.play();
+
+            // Reinicia a detecção de travamento
+            stallCount = 0;
+            lastCurrentTime = 0;
+            stallInterval = setInterval(() => {
+                if (!videoElement || videoElement.paused || videoElement.ended) return;
+                const currentTime = videoElement.currentTime;
+                if (currentTime === lastCurrentTime) {
+                    stallCount++;
+                    if (stallCount >= 3) { // 3 checks de 5s = 15s parado
+                        console.log('Stream travado por 15s, recarregando');
+                        reloadStream();
+                    }
+                } else {
+                    stallCount = 0;
+                    lastCurrentTime = currentTime;
+                }
+            }, 5000);
+        }
     }
 
     function playCanal(url, el) {
+        // Armazena o canal atual
+        currentChannelUrl = url;
+        currentChannelEl = el;
+
         contentArea.innerHTML = '';
         videoElement.style.display = 'block';
         document.querySelectorAll('.canal-item').forEach(i => i.classList.remove('active'));
         el.classList.add('active');
         if(window.innerWidth <= 768) sidebar.classList.remove('open');
 
+        // Limpa o intervalo antigo e destrói o player anterior
+        if (stallInterval) clearInterval(stallInterval);
+        stallInterval = null;
         if (player) { player.unload(); player.destroy(); }
 
         if (mpegts.getFeatureList().mseLivePlayback) {
@@ -191,9 +261,34 @@
                 isLive: true, 
                 url: `/api/proxy?url=${encodeURIComponent(url)}` 
             });
+
+            // Adiciona evento de erro para recarregar
+            player.on('error', (err) => {
+                console.error('Erro no player, recarregando...', err);
+                reloadStream();
+            });
+
             player.attachMediaElement(videoElement);
             player.load();
             player.play();
+
+            // Inicia a detecção de travamento
+            stallCount = 0;
+            lastCurrentTime = 0;
+            stallInterval = setInterval(() => {
+                if (!videoElement || videoElement.paused || videoElement.ended) return;
+                const currentTime = videoElement.currentTime;
+                if (currentTime === lastCurrentTime) {
+                    stallCount++;
+                    if (stallCount >= 3) { // 3 verificações seguidas sem avanço
+                        console.log('Stream possivelmente travado, recarregando');
+                        reloadStream();
+                    }
+                } else {
+                    stallCount = 0;
+                    lastCurrentTime = currentTime;
+                }
+            }, 5000); // verifica a cada 5 segundos
         }
     }
 
