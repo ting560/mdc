@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>IPTV MASTER</title>
+    <title>POSITIVA IPTV - ESTÁVEL</title>
     <script src="https://cdn.jsdelivr.net/npm/mpegts.js@latest/dist/mpegts.js"></script>
     <style>
         :root {
@@ -11,12 +11,14 @@
             --accent: #00ff88; --border: #222;
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { background: #000; color: #fff; font-family: system-ui, -apple-system, sans-serif; overflow: hidden; display: flex; height: 100vh; }
+        body { background: #000; color: #fff; font-family: sans-serif; overflow: hidden; display: flex; height: 100vh; width: 100vw; }
 
+        /* Sidebar com Scroll Visível */
         #sidebar { 
             position: fixed; top: 0; left: 0; width: 300px; height: 100%; 
             background: var(--sidebar); border-right: 1px solid var(--border);
-            z-index: 2000; transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 2000; transition: transform 0.3s ease;
+            display: flex; flex-direction: column;
         }
         
         @media (max-width: 768px) {
@@ -24,27 +26,40 @@
             #sidebar.open { transform: translateX(0); }
         }
 
-        .header { padding: 15px; border-bottom: 1px solid var(--border); background: #1a1a1a; }
-        #canal-list-container { flex: 1; overflow-y: auto; padding: 10px; background: #000; }
+        .header { padding: 15px; border-bottom: 1px solid var(--border); }
+        
+        /* Container da Lista com Scroll Habilitado */
+        #canal-list-container { 
+            flex: 1; 
+            overflow-y: scroll !important; /* Força a barra de rolagem */
+            padding: 10px; 
+            background: #000;
+            display: block;
+        }
+
+        /* Estilo da Barra de Rolagem para aparecer sempre */
+        #canal-list-container::-webkit-scrollbar { width: 10px; display: block; }
+        #canal-list-container::-webkit-scrollbar-track { background: #111; }
+        #canal-list-container::-webkit-scrollbar-thumb { background: #333; border-radius: 5px; border: 2px solid #111; }
+        #canal-list-container::-webkit-scrollbar-thumb:hover { background: var(--accent); }
 
         input#search { 
-            width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--accent);
+            width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--border);
             background: #222; color: #fff; margin-top: 10px; outline: none;
         }
 
         .btn-radio {
             width: 100%; padding: 14px; background: var(--accent); color: #000;
-            border: none; font-weight: 800; cursor: pointer; border-radius: 8px; margin-bottom: 15px;
-            text-transform: uppercase; letter-spacing: 1px;
+            border: none; font-weight: bold; cursor: pointer; border-radius: 8px; margin-bottom: 15px;
         }
 
         .canal-item { 
             padding: 14px; margin-bottom: 6px; border-radius: 8px; cursor: pointer;
-            font-size: 14px; background: #1a1a1a; border-left: 4px solid transparent;
+            font-size: 14px; background: #1a1a1a; border-bottom: 1px solid #222;
         }
-        .canal-item:hover { background: #222; }
-        .canal-item.active { background: #004422; border-left-color: var(--accent); color: var(--accent); font-weight: bold; }
+        .canal-item.active { background: #004422; color: var(--accent); font-weight: bold; border: 1px solid var(--accent); }
 
+        /* Área Principal */
         #main { position: absolute; top: 0; right: 0; width: 100%; height: 100%; background: #000; z-index: 1; }
         @media (min-width: 769px) { #main { width: calc(100% - 300px); } }
 
@@ -54,23 +69,23 @@
         #menu-toggle { 
             display: none; position: fixed; top: 15px; left: 15px; z-index: 2100; 
             padding: 12px 20px; background: var(--accent); color: #000; border: none; 
-            cursor: pointer; border-radius: 8px; font-weight: 900; box-shadow: 0 5px 20px rgba(0,255,136,0.3);
+            cursor: pointer; border-radius: 8px; font-weight: bold;
         }
         @media (max-width: 768px) { #menu-toggle { display: block; } }
     </style>
 </head>
 <body>
 
-<button id="menu-toggle" onclick="toggleMenu()">☰ LISTA</button>
+<button id="menu-toggle" onclick="toggleMenu()">☰ CANAIS</button>
 
 <aside id="sidebar">
     <div class="header">
-        <h3 style="color:var(--accent)">Radio & IPTV</h3>
-        <input type="text" id="search" placeholder="🔍 Buscar rápido..." oninput="filtrarCanais()">
+        <h3 style="color:var(--accent)">POSITIVA IPTV</h3>
+        <input type="text" id="search" placeholder="🔍 Buscar canal..." oninput="filtrarCanais()">
     </div>
     <div id="canal-list-container">
         <button class="btn-radio" onclick="abrirRadio()">📻 VOLTAR PARA RÁDIO</button>
-        <div id="canal-list">Sincronizando...</div>
+        <div id="canal-list">Carregando canais...</div>
     </div>
 </aside>
 
@@ -93,7 +108,7 @@
             const res = await fetch("https://raw.githubusercontent.com/ting560/tv/refs/heads/main/minha_lista_canais.m3u");
             const data = await res.text();
             parseM3U(data);
-        } catch (err) { console.error("Falha na lista"); }
+        } catch (err) { console.error("Erro lista"); }
     }
 
     function parseM3U(content) {
@@ -112,7 +127,7 @@
     function renderCanais(list) {
         document.getElementById('canal-list').innerHTML = list.map(c => `
             <div class="canal-item" onclick="playCanal('${c.url}', this)">
-                ⚽ ${c.name}
+                📺 ${c.name}
             </div>
         `).join('');
     }
@@ -138,35 +153,24 @@
 
         if (player) { player.unload(); player.detachMediaElement(); player.destroy(); }
 
-        // CONFIGURAÇÃO TURBO: LATÊNCIA MÍNIMA
+        // MODO TURBO ESTABILIZADO (SEM WORKER PARA NÃO DAR ERRO DE URL)
         if (mpegts.getFeatureList().mseLivePlayback) {
+            const proxyUrl = window.location.origin + `/api/proxy?url=${encodeURIComponent(url)}`;
+            
             player = mpegts.createPlayer({
-                type: 'mse', isLive: true, url: `/api/proxy?url=${encodeURIComponent(url)}`
+                type: 'mse', isLive: true, url: proxyUrl
             }, {
-                enableStashBuffer: false, // DESLIGA O BUFFER DE ACUMULO
-                stashInitialSize: 16,     // SÓ 16KB DE BUFFER INICIAL (INSTANTANEO)
-                enableWorker: true,       // USA UM PROCESSO SEPARADO PARA NÃO TRAVAR
-                lazyLoad: false,          // CARREGA TUDO NA HORA
-                liveBufferLatencyChasing: true, // PERSEGUE O TEMPO REAL (GOL ANTES DO VIZINHO)
-                liveBufferLatencyMaxLatency: 0.9, // ATRASO MÁXIMO DE 0.9 SEGUNDOS
-                liveBufferLatencyMinLatency: 0.2  // TENTA MANTER 0.2 SEGUNDOS DE DELAY
+                enableStashBuffer: false,
+                stashInitialSize: 128,
+                liveBufferLatencyChasing: true,
+                liveBufferLatencyMaxLatency: 1.2,
+                liveBufferLatencyMinLatency: 0.3
             });
             player.attachMediaElement(videoElement);
             player.load();
             player.play();
         }
     }
-
-    // AUTO-AJUSTE: Se o vídeo atrasar, ele "pula" para o tempo real
-    setInterval(() => {
-        if (player && videoElement.buffered.length > 0) {
-            let end = videoElement.buffered.end(videoElement.buffered.length - 1);
-            let diff = end - videoElement.currentTime;
-            if (diff > 1.5) { // Se atrasar mais de 1.5 segundos
-                videoElement.currentTime = end - 0.1; // Pula para o final do buffer
-            }
-        }
-    }, 3000);
 
     function toggleMenu() { sidebar.classList.toggle('open'); }
     fetchM3U();
