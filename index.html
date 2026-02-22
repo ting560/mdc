@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Stream Master</title>
+    <title>POSITIVA IPTV</title>
     <script src="https://cdn.jsdelivr.net/npm/mpegts.js@latest/dist/mpegts.js"></script>
     <style>
         :root {
@@ -15,97 +15,86 @@
             --accent: #0088ff; --hover: #e0e0e0; --border: #ccc;
         }
 
-        /* Reset e Estrutura Básica */
+        /* Estrutura Base */
         * { margin: 0; padding: 0; box-sizing: border-box; }
         
-        /* Garante que o body ocupe toda a tela sem barras de rolagem estranhas */
         html, body { 
             width: 100%; height: 100%; 
             background: #000; color: var(--text); 
             font-family: 'Segoe UI', sans-serif; 
-            overflow: hidden; position: fixed;
+            overflow: hidden; 
         }
 
         /* Sidebar - Menu Lateral */
         #sidebar { 
-            width: 320px; min-width: 320px; 
+            position: fixed; top: 0; left: 0; 
+            width: 320px; height: 100%; 
             background: var(--sidebar); border-right: 1px solid var(--border);
             display: flex; flex-direction: column; 
-            height: 100%; z-index: 1000;
+            z-index: 2000; /* Garante que fique na frente */
             transition: transform 0.3s ease;
         }
         
+        /* Mobile: Esconde a barra por padrão */
+        @media (max-width: 768px) {
+            #sidebar { transform: translateX(-100%); width: 280px; }
+            #sidebar.open { transform: translateX(0); }
+        }
+
         .header { padding: 15px; border-bottom: 1px solid var(--border); }
         
         #canal-list-container { 
-            flex: 1; 
-            overflow-y: auto; 
-            padding: 10px;
+            flex: 1; overflow-y: auto; padding: 10px;
             -webkit-overflow-scrolling: touch;
         }
-
-        /* Customização da Barra de Rolagem */
-        #canal-list-container::-webkit-scrollbar { width: 8px; }
-        #canal-list-container::-webkit-scrollbar-track { background: var(--sidebar); }
-        #canal-list-container::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
 
         input#search { 
             width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--border);
             background: var(--bg); color: var(--text); margin-top: 10px; outline: none;
-            font-size: 16px; /* Evita zoom no iPhone */
         }
 
         .btn-radio {
             width: 100%; padding: 12px; background: var(--accent); color: #000;
             border: none; font-weight: bold; cursor: pointer; border-radius: 6px; 
-            margin-bottom: 15px; font-size: 13px; transition: 0.2s;
+            margin-bottom: 15px; font-size: 13px;
         }
-        .btn-radio:active { transform: scale(0.98); opacity: 0.8; }
 
         .canal-item { 
             padding: 12px; margin-bottom: 5px; border-radius: 6px; cursor: pointer;
             font-size: 14px; border-bottom: 1px solid var(--border);
-            word-break: break-all; transition: 0.2s;
+            background: rgba(255,255,255,0.02);
         }
         .canal-item:hover { background: var(--hover); }
         .canal-item.active { background: var(--accent); color: #000; font-weight: bold; }
 
-        /* Área Principal - Onde o conteúdo vive */
+        /* Área Principal do Conteúdo */
         #main { 
-            flex: 1; position: relative; 
-            background: #000; height: 100%; width: 100%;
+            position: absolute; top: 0; right: 0;
+            /* No Desktop, deixa espaço para a sidebar. No Mobile, ocupa tudo. */
+            width: calc(100% - 320px); height: 100%; 
+            background: #000; z-index: 1;
         }
         
-        /* Correção Crítica: Ocupar 100% da tela */
+        @media (max-width: 768px) {
+            #main { width: 100%; }
+        }
+
         #content-area, iframe, video { 
-            width: 100%; height: 100%; 
-            border: none; position: absolute; 
-            top: 0; left: 0; 
+            width: 100%; height: 100%; border: none; 
+            position: absolute; top: 0; left: 0; 
         }
         
         video { object-fit: contain; display: none; background: #000; }
 
-        /* Botão Flutuante Canais */
+        /* Botão Menu Mobile */
         #menu-toggle { 
-            position: absolute; top: 15px; left: 15px; 
-            z-index: 1100; padding: 10px 20px; 
-            background: var(--accent); color: #000; 
-            border: none; cursor: pointer; border-radius: 50px;
+            display: none; position: fixed; top: 15px; left: 15px; 
+            z-index: 2100; padding: 10px 20px; background: var(--accent); 
+            color: #000; border: none; cursor: pointer; border-radius: 50px;
             font-weight: bold; box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-            display: none; /* Só aparece no mobile */
         }
 
-        /* Responsividade Mobile */
-        @media (max-width: 768px) {
-            #sidebar { 
-                position: fixed; left: 0; 
-                transform: translateX(-100%);
-                width: 280px; min-width: 280px;
-                box-shadow: 10px 0 30px rgba(0,0,0,0.5);
-            }
-            #sidebar.open { transform: translateX(0); }
-            #menu-toggle { display: block; }
-        }
+        @media (max-width: 768px) { #menu-toggle { display: block; } }
     </style>
 </head>
 <body data-theme="dark">
@@ -115,7 +104,7 @@
 <aside id="sidebar">
     <div class="header">
         <div style="display:flex; justify-content:space-between; align-items:center;">
-            <h3 style="font-size: 16px;">IPTV & Radio</h3>
+            <h3 style="font-size: 16px;">POSITIVA TV</h3>
             <button onclick="toggleTheme()" style="background:none; border:none; cursor:pointer; font-size:18px;">🌓</button>
         </div>
         <input type="text" id="search" placeholder="🔍 Buscar canal..." oninput="filtrarCanais()">
@@ -127,7 +116,7 @@
     </div>
 </aside>
 
-<main id="main" onclick="closeSidebarIfOpen()">
+<main id="main">
     <div id="content-area">
         <iframe src="https://www.radiopositivafm.com.br/play/"></iframe>
     </div>
@@ -148,7 +137,7 @@
             const data = await res.text();
             parseM3U(data);
         } catch (err) {
-            document.getElementById('canal-list').innerText = "Erro na lista.";
+            document.getElementById('canal-list').innerText = "Erro ao carregar lista.";
         }
     }
 
@@ -159,7 +148,7 @@
             if (lines[i].includes('#EXTINF')) {
                 const name = lines[i].split(',')[1] || "Canal";
                 const url = lines[i+1]?.trim();
-                if (url && url.startsWith('http')) allChannels.push({ name, url });
+                if (url) allChannels.push({ name, url });
             }
         }
         renderCanais(allChannels);
@@ -168,7 +157,7 @@
     function renderCanais(list) {
         const container = document.getElementById('canal-list');
         container.innerHTML = list.map(c => `
-            <div class="canal-item" onclick="playCanal('${c.url}', this); event.stopPropagation();">
+            <div class="canal-item" onclick="playCanal('${c.url}', this)">
                 📺 ${c.name}
             </div>
         `).join('');
@@ -184,26 +173,23 @@
         if (player) { player.pause(); player.unload(); }
         videoElement.style.display = 'none';
         contentArea.innerHTML = '<iframe src="https://www.radiopositivafm.com.br/play/"></iframe>';
-        document.querySelectorAll('.canal-item').forEach(i => i.classList.remove('active'));
-        if(window.innerWidth <= 768) toggleMenu();
+        if(window.innerWidth <= 768) sidebar.classList.remove('open');
     }
 
     function playCanal(url, el) {
-        contentArea.innerHTML = ''; // Mata o iframe para parar o som
+        contentArea.innerHTML = '';
         videoElement.style.display = 'block';
-
         document.querySelectorAll('.canal-item').forEach(i => i.classList.remove('active'));
         el.classList.add('active');
-        if(window.innerWidth <= 768) toggleMenu();
+        if(window.innerWidth <= 768) sidebar.classList.remove('open');
 
-        if (player) { player.unload(); player.detachMediaElement(); player.destroy(); }
+        if (player) { player.unload(); player.destroy(); }
 
-        const proxyUrl = `/api/proxy?url=${encodeURIComponent(url)}`;
-        
         if (mpegts.getFeatureList().mseLivePlayback) {
-            player = mpegts.createPlayer({ type: 'mse', isLive: true, url: proxyUrl }, {
-                enableStashBuffer: false,
-                stashInitialSize: 128
+            player = mpegts.createPlayer({ 
+                type: 'mse', 
+                isLive: true, 
+                url: `/api/proxy?url=${encodeURIComponent(url)}` 
             });
             player.attachMediaElement(videoElement);
             player.load();
@@ -217,12 +203,6 @@
 
     function toggleMenu() {
         sidebar.classList.toggle('open');
-    }
-
-    function closeSidebarIfOpen() {
-        if (window.innerWidth <= 768 && sidebar.classList.contains('open')) {
-            sidebar.classList.remove('open');
-        }
     }
 
     fetchM3U();
