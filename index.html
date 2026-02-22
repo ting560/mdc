@@ -2,38 +2,20 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Player de Transmissão</title>
-    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <title>Player de TV</title>
+    <link href="https://vjs.zencdn.net/8.10.0/video-js.css" rel="stylesheet" />
     <style>
-        body { margin: 0; background: #000; height: 100vh; display: flex; align-items: center; justify-content: center; }
-        video { width: 100%; max-width: 900px; border: 2px solid #333; }
+        body { margin: 0; background: #000; display: flex; justify-content: center; align-items: center; height: 100vh; }
+        .video-js { width: 100vw; height: 100vh; }
     </style>
 </head>
 <body>
-    <video id="video" controls autoplay></video>
-    <script>
-    var video = document.getElementById('video');
-    // Chamando o seu proxy da Vercel
-    var videoSrc = '/api/proxy'; 
 
-    if (video.canPlayType('application/vnd.apple.mpegurl')) {
-        // Para Safari/iPhone
-        video.src = videoSrc;
-    } else {
-        // Para Chrome/Firefox usando Hls.js
-        if (Hls.isSupported()) {
-            var hls = new Hls({
-                enableWorker: true,
-                lowLatencyMode: true
-            });
-            hls.loadSource(videoSrc);
-            hls.attachMedia(video);
-            hls.on(Hls.Events.ERROR, function (event, data) {
-                console.log("Erro HLS:", data);
-            });
-        }
-    }
-</script>
+  <video id="my-video" class="video-js vjs-big-play-centered" controls preload="auto" autoplay data-setup='{}'>
+    <source src="/api/proxy" type="video/mp2t">
+    <p class="vjs-no-js">Para ver este vídeo, habilite o JavaScript.</p>
+  </video>
+
+  <script src="https://vjs.zencdn.net/8.10.0/video.min.js"></script>
 </body>
 </html>
