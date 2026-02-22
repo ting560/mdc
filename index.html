@@ -125,12 +125,12 @@
     const contentArea = document.getElementById('content-area');
     const sidebar = document.getElementById('sidebar');
 
-    // Variáveis para controle de travamento
-    let stallInterval = null;          // Intervalo que verifica o tempo
-    let stallCount = 0;                // Quantas vezes consecutivas o tempo não mudou
-    let lastCurrentTime = 0;            // Último currentTime registrado
-    let currentChannelUrl = null;       // URL do canal atual (para recarregar)
-    let currentChannelElement = null;   // Elemento DOM do canal ativo
+    // Controle de travamento
+    let stallInterval = null;
+    let stallCount = 0;
+    let lastCurrentTime = 0;
+    let currentChannelUrl = null;
+    let currentChannelElement = null;
 
     async function fetchM3U() {
         const url = "https://raw.githubusercontent.com/ting560/tv/refs/heads/main/minha_lista_canais.m3u";
@@ -172,7 +172,6 @@
     }
 
     function abrirRadio() {
-        // Para o monitoramento de travamento
         if (stallInterval) clearInterval(stallInterval);
         stallInterval = null;
         if (player) { player.pause(); player.unload(); player.destroy(); player = null; }
@@ -185,71 +184,99 @@
         currentChannelElement = null;
     }
 
-    // Função que recarrega o stream (simula um clique no canal atual)
+    // Função para recarregar o stream atual (chama playCanal novamente)
     function reloadStream() {
-        if (!currentChannelUrl || !currentChannelElement) return; // Não há canal ativo
-
-        console.log('Stream travado, recarregando canal...');
-        // Chama a própria função playCanal com os mesmos parâmetros
+        if (!currentChannelUrl || !currentChannelElement) return;
+        console.log('Recarregando canal automaticamente...');
         playCanal(currentChannelUrl, currentChannelElement);
     }
 
-    function playCanal(url, el) {
-        // Atualiza as variáveis do canal atual
+    // Função principal para tocar um canal (agora assíncrona)
+    async function playCanal(url, el) {
+        // Guarda referência do canal atual
         currentChannelUrl = url;
         currentChannelElement = el;
 
+        // Limpa o monitoramento antigo e destrói player anterior
+        if (stallInterval) clearInterval(stallInterval);
+        stallInterval = null;
+        if (player) {
+            player.pause();
+            player.unload();
+            player.destroy();
+            player = null;
+        }
+
+        // Prepara a interface
         contentArea.innerHTML = '';
         videoElement.style.display = 'block';
         document.querySelectorAll('.canal-item').forEach(i => i.classList.remove('active'));
         el.classList.add('active');
         if(window.innerWidth <= 768) sidebar.classList.remove('open');
 
-        // Limpa o monitoramento antigo
-        if (stallInterval) clearInterval(stallInterval);
-        stallInterval = null;
-        if (player) { player.unload(); player.destroy(); player = null; }
+        // Pequeno atraso para garantir que tudo foi limpo
+        await new Promise(r => setTimeout(r, 100));
+
+        if (!mpegts.getFeatureList().mseLivePlayback) {
+            alert('Seu navegador não suporta reprodução MSE ao vivo.');
+            return;
+        }
 
         // Cria o novo player
-        if (mpegts.getFeatureList().mseLivePlayback) {
-            player = mpegts.createPlayer({ 
-                type: 'mse', 
-                isLive: true, 
-                url: `/api/proxy?url=${encodeURIComponent(url)}` 
-            });
+        player = mpegts.createPlayer({ 
+            type: 'mse', 
+            isLive: true, 
+            url: `/api/proxy?url=${encodeURIComponent(url)}` 
+        });
 
-            // Tratamento de erro: recarrega automaticamente
-            player.on('error', (err) => {
-                console.error('Erro no player, recarregando...', err);
-                reloadStream();
-            });
+        // Tratamento de erro: tenta recarregar
+        player.on('error', (err) => {
+            console.error('Erro no player, recarregando...', err);
+            reloadStream();
+        });
 
-            player.attachMediaElement(videoElement);
-            player.load();
-            player.play();
+        player.attachMediaElement(videoElement);
+        player.load();
 
-            // Inicia a detecção de travamento
-            stallCount = 0;
-            lastCurrentTime = 0;
-            stallInterval = setInterval(() => {
-                // Só verifica se o vídeo está visível e não pausado pelo usuário
-                if (!videoElement || videoElement.paused || videoElement.ended) return;
-
-                const currentTime = videoElement.currentTime;
-                if (currentTime === lastCurrentTime) {
-                    stallCount++;
-                    // Se ficou parado por 2 verificações consecutivas (4 segundos), recarrega
-                    if (stallCount >= 2) {
-                        console.log('Vídeo parado por 4 segundos, recarregando...');
-                        reloadStream();
-                    }
-                } else {
-                    // O tempo avançou, resetamos o contador
-                    stallCount = 0;
-                    lastCurrentTime = currentTime;
+        // Tenta dar play com retry em caso de falha
+        const maxRetries = 3;
+        for (let i = 0; i < maxRetries; i++) {
+            try {
+                await player.play();
+                console.log('Play iniciado com sucesso');
+                break; // Sai do loop se conseguiu
+            } catch (err) {
+                console.warn(`Tentativa ${i+1} de play falhou:`, err);
+                if (i === maxRetries - 1) {
+                    // Se falhou todas as tentativas, recarrega o canal
+                    console.error('Não foi possível iniciar a reprodução após várias tentativas. Recarregando...');
+                    reloadStream();
+                    return;
                 }
-            }, 2000); // Verifica a cada 2 segundos
+                // Aguarda 1 segundo antes de tentar novamente
+                await new Promise(r => setTimeout(r, 1000));
+            }
         }
+
+        // Inicia a detecção de travamento (verifica a cada 1 segundo)
+        stallCount = 0;
+        lastCurrentTime = 0;
+        stallInterval = setInterval(() => {
+            if (!videoElement || videoElement.paused || videoElement.ended) return;
+
+            const currentTime = videoElement.currentTime;
+            if (currentTime === lastCurrentTime) {
+                stallCount++;
+                // Se ficou parado por 3 segundos (3 checks de 1s), recarrega
+                if (stallCount >= 3) {
+                    console.log('Vídeo parado por 3 segundos, recarregando...');
+                    reloadStream();
+                }
+            } else {
+                stallCount = 0;
+                lastCurrentTime = currentTime;
+            }
+        }, 1000);
     }
 
     function toggleTheme() {
