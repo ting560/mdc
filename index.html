@@ -2,20 +2,48 @@
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <title>Player de TV</title>
-    <link href="https://vjs.zencdn.net/8.10.0/video-js.css" rel="stylesheet" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Player Live Stream</title>
+    <script src="https://cdn.jsdelivr.net/npm/mpegts.js@latest/dist/mpegts.js"></script>
     <style>
-        body { margin: 0; background: #000; display: flex; justify-content: center; align-items: center; height: 100vh; }
-        .video-js { width: 100vw; height: 100vh; }
+        body { 
+            margin: 0; 
+            background: #000; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            height: 100vh; 
+            overflow: hidden;
+        }
+        video { 
+            width: 100%; 
+            max-width: 1000px; 
+            box-shadow: 0 0 20px rgba(0,255,0,0.2);
+        }
     </style>
 </head>
 <body>
 
-  <video id="my-video" class="video-js vjs-big-play-centered" controls preload="auto" autoplay data-setup='{}'>
-    <source src="/api/proxy" type="video/mp2t">
-    <p class="vjs-no-js">Para ver este vídeo, habilite o JavaScript.</p>
-  </video>
+    <video id="videoElement" controls autoplay muted></video>
 
-  <script src="https://vjs.zencdn.net/8.10.0/video.min.js"></script>
+    <script>
+        if (mpegts.getFeatureList().mseLivePlayback) {
+            var videoElement = document.getElementById('videoElement');
+            var player = mpegts.createPlayer({
+                type: 'mse',  // Media Source Extensions
+                isLive: true,
+                url: '/api/proxy' // Seu link que inicia o download
+            });
+            player.attachMediaElement(videoElement);
+            player.load();
+            player.play();
+        }
+
+        // Caso o player trave por erro de rede, ele tenta recarregar
+        player.on(mpegts.Events.ERROR, (errorType, errorDetail, errorInfo) => {
+            console.log("Erro no sinal, tentando reconectar...");
+            player.reload();
+        });
+    </script>
 </body>
 </html>
