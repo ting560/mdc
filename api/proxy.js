@@ -1,15 +1,22 @@
 const http = require('http');
+const https = require('https');
 
 export default function handler(req, res) {
-  const url = 'http://live.sinalmycn.com/11000/mpegts';
+  // Pega a URL que vem do clique no canal
+  const targetUrl = req.query.url;
 
-  const request = http.get(url, (response) => {
-    // Headers vitais para o navegador aceitar o stream como vídeo
+  if (!targetUrl) {
+    return res.status(400).send("URL não fornecida");
+  }
+
+  // Escolhe o protocolo certo (http ou https) da fonte
+  const client = targetUrl.startsWith('https') ? https : http;
+
+  const request = client.get(targetUrl, (response) => {
     res.setHeader('Content-Type', 'video/mp2t');
     res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Connection', 'keep-alive');
-
-    // Repassa os dados assim que chegam
+    res.setHeader('Cache-Control', 'no-cache');
+    
     response.pipe(res);
   });
 
@@ -17,7 +24,6 @@ export default function handler(req, res) {
     res.status(500).end();
   });
 
-  // Se o usuário fechar a página, interrompe a busca no servidor original
   req.on('close', () => {
     request.destroy();
   });
