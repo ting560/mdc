@@ -90,11 +90,62 @@
         }
 
         @media (max-width: 768px) { #menu-toggle { display: block; } }
+
+        /* --- NOVOS ESTILOS PARA O POPUP MOBILE --- */
+        #mobile-popup {
+            display: none;
+            position: fixed;
+            bottom: 30px;
+            left: 20px;
+            right: 20px;
+            background: var(--accent);
+            color: #000;
+            padding: 15px 20px;
+            border-radius: 60px;
+            font-weight: bold;
+            font-size: 18px;
+            text-align: center;
+            z-index: 2200;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            animation: pulse 1.5s infinite;
+            cursor: pointer;
+            border: 2px solid #fff;
+        }
+
+        #mobile-popup::after {
+            content: "←";
+            font-size: 30px;
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            animation: moveLeft 1s infinite alternate;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); background: var(--accent); }
+            50% { transform: scale(1.05); background: #ffaa00; }
+            100% { transform: scale(1); background: var(--accent); }
+        }
+
+        @keyframes moveLeft {
+            from { left: 15px; }
+            to { left: 10px; }
+        }
+
+        @media (min-width: 769px) {
+            #mobile-popup { display: none !important; }
+        }
     </style>
 </head>
 <body data-theme="dark">
 
 <button id="menu-toggle" onclick="toggleMenu()">☰ CANAIS</button>
+
+<!-- POPUP MOBILE -->
+<div id="mobile-popup" onclick="toggleMenu()">
+    📺 Quer assistir canais? Clique aqui
+</div>
 
 <aside id="sidebar">
     <div class="header">
@@ -124,15 +175,16 @@
     const videoElement = document.getElementById('videoPlayer');
     const contentArea = document.getElementById('content-area');
     const sidebar = document.getElementById('sidebar');
+    const mobilePopup = document.getElementById('mobile-popup');
 
-    // Controle de travamento e reconexão preventiva
+    // Controle de travamento
     let stallInterval = null;
     let stallCount = 0;
     let lastCurrentTime = 0;
     let currentChannelUrl = null;
     let currentChannelElement = null;
     let reloadTimeout = null;
-    let preventiveTimer = null; // Timer para reconexão aos 4:50
+    let refreshTimer = null; // Timer para recarga preventiva aos 4:50
 
     // Função para limpar tudo antes de recarregar
     function cleanup() {
@@ -140,8 +192,8 @@
         stallInterval = null;
         if (reloadTimeout) clearTimeout(reloadTimeout);
         reloadTimeout = null;
-        if (preventiveTimer) clearTimeout(preventiveTimer);
-        preventiveTimer = null;
+        if (refreshTimer) clearTimeout(refreshTimer);
+        refreshTimer = null;
         if (player) {
             player.pause();
             player.unload();
@@ -196,12 +248,13 @@
         if(window.innerWidth <= 768) sidebar.classList.remove('open');
         currentChannelUrl = null;
         currentChannelElement = null;
+        // Esconde popup se estiver aberto (opcional)
+        if (mobilePopup) mobilePopup.style.display = 'none';
     }
 
     // Função para recarregar o stream atual (chama playCanal novamente)
     function reloadStream() {
         if (!currentChannelUrl || !currentChannelElement) return;
-        // Evita múltiplas chamadas de recarga simultâneas
         if (reloadTimeout) return;
         reloadTimeout = setTimeout(() => {
             reloadTimeout = null;
@@ -225,6 +278,9 @@
         document.querySelectorAll('.canal-item').forEach(i => i.classList.remove('active'));
         el.classList.add('active');
         if(window.innerWidth <= 768) sidebar.classList.remove('open');
+
+        // Esconde o popup quando um canal é selecionado
+        if (mobilePopup) mobilePopup.style.display = 'none';
 
         // Pequeno atraso para garantir que tudo foi limpo
         await new Promise(r => setTimeout(r, 100));
@@ -307,18 +363,43 @@
             }
         }, 10000);
 
-        // --- NOVO: Reconexão preventiva aos 4 minutos e 50 segundos (290 segundos) ---
-        // Monitora o tempo e agenda uma recarga quando currentTime atingir 290s
-        const preventiveCheck = setInterval(() => {
-            if (videoElement && !videoElement.paused && videoElement.currentTime >= 290) {
+        // --- NOVO: Recarga preventiva aos 4 minutos e 50 segundos (290 segundos) ---
+        // Se o vídeo chegar próximo dos 5 min, recarrega antes de travar
+        const checkTimeInterval = setInterval(() => {
+            if (!videoElement || videoElement.paused || videoElement.ended) return;
+            const currentTime = videoElement.currentTime;
+            // Se estiver entre 290 e 300 segundos (4:50 a 5:00), recarrega
+            if (currentTime >= 290 && currentTime < 300) {
                 console.log('Atingiu 4:50, recarregando preventivamente...');
-                clearInterval(preventiveCheck);
+                clearInterval(checkTimeInterval);
                 reloadStream();
             }
         }, 1000);
-        // Armazena o intervalo para poder limpá-lo depois
-        preventiveTimer = preventiveCheck;
+        // Guarda o intervalo para limpar depois
+        refreshTimer = checkTimeInterval;
     }
+
+    // Controle do popup mobile
+    function showMobilePopup() {
+        if (!mobilePopup) return;
+        // Mostra apenas em mobile e se a sidebar estiver fechada
+        if (window.innerWidth <= 768 && !sidebar.classList.contains('open')) {
+            mobilePopup.style.display = 'block';
+        } else {
+            mobilePopup.style.display = 'none';
+        }
+    }
+
+    // Monitora mudanças de tamanho de tela e estado da sidebar
+    window.addEventListener('resize', showMobilePopup);
+    // Observa quando a sidebar abre/fecha
+    const observer = new MutationObserver(() => {
+        showMobilePopup();
+    });
+    observer.observe(sidebar, { attributes: true, attributeFilter: ['class'] });
+
+    // Mostra o popup quando a página carrega (se estiver em mobile e sidebar fechada)
+    setTimeout(showMobilePopup, 1000);
 
     function toggleTheme() {
         document.body.dataset.theme = document.body.dataset.theme === 'dark' ? 'light' : 'dark';
@@ -326,6 +407,7 @@
 
     function toggleMenu() {
         sidebar.classList.toggle('open');
+        showMobilePopup(); // atualiza popup
     }
 
     fetchM3U();
