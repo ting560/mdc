@@ -6,6 +6,7 @@
     <title>IPTV MASTER</title>
     <script src="https://cdn.jsdelivr.net/npm/mpegts.js@latest/dist/mpegts.js"></script>
     <style>
+        /* (mesmo estilo, inalterado) */
         :root {
             --bg: #0f0f0f; --text: #ffffff; --sidebar: #1a1a1a;
             --accent: #00ff88; --hover: #2a2a2a; --border: #333;
@@ -15,7 +16,6 @@
             --accent: #0088ff; --hover: #e0e0e0; --border: #ccc;
         }
 
-        /* Estrutura Base */
         * { margin: 0; padding: 0; box-sizing: border-box; }
         
         html, body { 
@@ -25,7 +25,6 @@
             overflow: hidden; 
         }
 
-        /* Sidebar - Menu Lateral */
         #sidebar { 
             position: fixed; top: 0; left: 0; 
             width: 320px; height: 100%; 
@@ -66,7 +65,6 @@
         .canal-item:hover { background: var(--hover); }
         .canal-item.active { background: var(--accent); color: #000; font-weight: bold; }
 
-        /* Área Principal do Conteúdo */
         #main { 
             position: absolute; top: 0; right: 0;
             width: calc(100% - 320px); height: 100%; 
@@ -84,7 +82,6 @@
         
         video { object-fit: contain; display: none; background: #000; }
 
-        /* Botão Menu Mobile */
         #menu-toggle { 
             display: none; position: fixed; top: 15px; left: 15px; 
             z-index: 2100; padding: 10px 20px; background: var(--accent); 
@@ -128,12 +125,12 @@
     const contentArea = document.getElementById('content-area');
     const sidebar = document.getElementById('sidebar');
 
-    // --- NOVAS VARIÁVEIS PARA CONTROLE DE TRAVAMENTO ---
-    let stallInterval = null;          // intervalo de verificação
-    let stallCount = 0;                // quantas vezes seguidas o tempo não avançou
-    let lastCurrentTime = 0;            // último tempo registrado
-    let currentChannelUrl = null;       // url do canal atual (para recarregar)
-    let currentChannelEl = null;        // elemento li ativo (para manter a classe)
+    // Variáveis para detecção de travamento
+    let stallInterval = null;
+    let stallCount = 0;
+    let lastCurrentTime = 0;
+    let currentChannelUrl = null;
+    let currentChannelEl = null;
 
     async function fetchM3U() {
         const url = "https://raw.githubusercontent.com/ting560/tv/refs/heads/main/minha_lista_canais.m3u";
@@ -175,7 +172,6 @@
     }
 
     function abrirRadio() {
-        // Para qualquer verificação de travamento
         if (stallInterval) clearInterval(stallInterval);
         stallInterval = null;
         if (player) { player.pause(); player.unload(); player.destroy(); player = null; }
@@ -188,9 +184,9 @@
         currentChannelEl = null;
     }
 
-    // --- NOVA FUNÇÃO PARA RECARREGAR O STREAM QUANDO TRAVAR ---
+    // Função para recarregar o stream atual
     function reloadStream() {
-        if (!currentChannelUrl) return; // não há canal ativo
+        if (!currentChannelUrl) return;
 
         console.log('Recarregando stream por travamento...');
         if (stallInterval) clearInterval(stallInterval);
@@ -201,7 +197,7 @@
             player = null;
         }
 
-        // Recria o player com a mesma url
+        // Recria o player com a mesma URL
         if (mpegts.getFeatureList().mseLivePlayback) {
             player = mpegts.createPlayer({ 
                 type: 'mse', 
@@ -209,7 +205,6 @@
                 url: `/api/proxy?url=${encodeURIComponent(currentChannelUrl)}` 
             });
 
-            // Reatribui o evento de erro
             player.on('error', (err) => {
                 console.error('Erro no player, recarregando...', err);
                 reloadStream();
@@ -227,20 +222,21 @@
                 const currentTime = videoElement.currentTime;
                 if (currentTime === lastCurrentTime) {
                     stallCount++;
-                    if (stallCount >= 3) { // 3 checks de 5s = 15s parado
-                        console.log('Stream travado por 15s, recarregando');
+                    // Se ficar 2 verificações seguidas sem mudar (~2 segundos), recarrega
+                    if (stallCount >= 2) {
+                        console.log('Stream travado por ~2 segundos, recarregando');
                         reloadStream();
                     }
                 } else {
                     stallCount = 0;
                     lastCurrentTime = currentTime;
                 }
-            }, 5000);
+            }, 1000); // verifica a cada 1 segundo
         }
     }
 
     function playCanal(url, el) {
-        // Armazena o canal atual
+        // Atualiza o canal atual
         currentChannelUrl = url;
         currentChannelEl = el;
 
@@ -250,7 +246,7 @@
         el.classList.add('active');
         if(window.innerWidth <= 768) sidebar.classList.remove('open');
 
-        // Limpa o intervalo antigo e destrói o player anterior
+        // Limpa intervalo antigo
         if (stallInterval) clearInterval(stallInterval);
         stallInterval = null;
         if (player) { player.unload(); player.destroy(); }
@@ -262,7 +258,6 @@
                 url: `/api/proxy?url=${encodeURIComponent(url)}` 
             });
 
-            // Adiciona evento de erro para recarregar
             player.on('error', (err) => {
                 console.error('Erro no player, recarregando...', err);
                 reloadStream();
@@ -272,7 +267,7 @@
             player.load();
             player.play();
 
-            // Inicia a detecção de travamento
+            // Inicia detecção de travamento a cada 1 segundo
             stallCount = 0;
             lastCurrentTime = 0;
             stallInterval = setInterval(() => {
@@ -280,15 +275,15 @@
                 const currentTime = videoElement.currentTime;
                 if (currentTime === lastCurrentTime) {
                     stallCount++;
-                    if (stallCount >= 3) { // 3 verificações seguidas sem avanço
-                        console.log('Stream possivelmente travado, recarregando');
+                    if (stallCount >= 2) {
+                        console.log('Stream travado por ~2 segundos, recarregando');
                         reloadStream();
                     }
                 } else {
                     stallCount = 0;
                     lastCurrentTime = currentTime;
                 }
-            }, 5000); // verifica a cada 5 segundos
+            }, 1000);
         }
     }
 
