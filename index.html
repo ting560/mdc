@@ -131,7 +131,96 @@
         
         video { object-fit: contain; display: none; background: #000; }
         
-        /* Loading Overlay */
+        /* Categorias */
+        .category-header {
+            padding: 10px 12px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 6px;
+            margin: 10px 0 5px 0;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-weight: bold;
+            font-size: 13px;
+            transition: all 0.2s;
+        }
+        
+        .category-header:hover {
+            background: rgba(255,255,255,0.1);
+        }
+        
+        .category-header .category-name {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .category-header .category-count {
+            background: rgba(255,255,255,0.1);
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 11px;
+        }
+        
+        .category-header .toggle-icon {
+            transition: transform 0.3s;
+        }
+        
+        .category-header.collapsed .toggle-icon {
+            transform: rotate(-90deg);
+        }
+        
+        .category-content {
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+        }
+        
+        .category-content.collapsed {
+            max-height: 0 !important;
+        }
+        
+        /* Filtro de categorias */
+        .category-filter {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .filter-btn {
+            padding: 6px 12px;
+            background: rgba(255,255,255,0.1);
+            border: none;
+            border-radius: 15px;
+            color: var(--text);
+            font-size: 11px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .filter-btn:hover {
+            background: rgba(255,255,255,0.2);
+        }
+        
+        .filter-btn.active {
+            background: var(--accent);
+            color: #000;
+            font-weight: bold;
+        }
+        
+        /* Ícones por categoria */
+        .cat-esportes::before { content: '⚽'; }
+        .cat-noticias::before { content: '📰'; }
+        .cat-filmes::before { content: '🎬'; }
+        .cat-series::before { content: '📺'; }
+        .cat-documentarios::before { content: '📖'; }
+        .cat-infantis::before { content: '🧸'; }
+        .cat-musica::before { content: '🎵'; }
+        .cat-religioso::before { content: '🙏'; }
+        .cat-educativo::before { content: '📚'; }
+        .cat-variedades::before { content: '🌟'; }
+        .cat-default::before { content: '📡'; }
         .loading-overlay {
             position: absolute;
             top: 0;
@@ -211,6 +300,11 @@
         .sidebar-overlay.active {
             display: block;
         }
+        
+        /* Ajuste para lista com categorias */
+        #canal-list {
+            padding-bottom: 10px;
+        }
     </style>
 </head>
 <body data-theme="dark">
@@ -231,6 +325,10 @@
     
     <div id="canal-list-container">
         <button class="btn-radio" onclick="abrirRadio()">📻 VOLTAR PARA RÁDIO</button>
+        
+        <!-- Filtros rápidos de categoria -->
+        <div id="category-filters" class="category-filter"></div>
+        
         <div id="canal-list">Carregando canais...</div>
     </div>
 </aside>
@@ -253,7 +351,9 @@
 <script>
     let player = null;
     let allChannels = [];
+    let channelsByCategory = {};
     let currentChannelUrl = null;
+    let activeCategory = 'todos';
     const videoElement = document.getElementById('videoPlayer');
     const contentArea = document.getElementById('content-area');
     const sidebar = document.getElementById('sidebar');
@@ -261,6 +361,32 @@
     const errorMessage = document.getElementById('error-message');
     const channelCount = document.getElementById('channel-count');
     const overlay = document.getElementById('sidebar-overlay');
+    const categoryFiltersContainer = document.getElementById('category-filters');
+
+    // Mapeamento de categorias para ícones e nomes amigáveis
+    const categoryIcons = {
+        'esportes': '⚽ Esportes',
+        'noticias': '📰 Notícias',
+        'filmes': '🎬 Filmes',
+        'series': '📺 Séries',
+        'documentarios': '📖 Documentários',
+        'infantil': '🧸 Infantil',
+        'criancas': '🧸 Crianças',
+        'musica': '🎵 Música',
+        'religioso': '🙏 Religioso',
+        'gospel': '🙏 Gospel',
+        'educativo': '📚 Educativo',
+        'variedades': '🌟 Variedades',
+        'entretenimento': '🌟 Entretenimento',
+        'lifestyle': '💼 Lifestyle',
+        'culinaria': '🍳 Culinária',
+        'viagem': '✈️ Viagem',
+        'natureza': '🌿 Natureza',
+        'ciencia': '🔬 Ciência',
+        'historia': '📜 História',
+        'business': '💼 Negócios',
+        'adulto': '🔞 Adulto'
+    };
 
     // Debounce para busca
     let searchTimeout = null;
@@ -289,16 +415,31 @@
     function parseM3U(content) {
         const lines = content.split('\n');
         allChannels = [];
+        channelsByCategory = {};
+        
         for (let i = 0; i < lines.length; i++) {
             if (lines[i].includes('#EXTINF')) {
                 const name = lines[i].split(',')[1] || "Canal sem nome";
                 const url = lines[i+1]?.trim();
+                
                 if (url && url.startsWith('http')) {
-                    allChannels.push({ 
+                    const group = extractGroup(lines[i]);
+                    const category = normalizeCategory(group);
+                    
+                    const channel = { 
                         name: name.trim(), 
                         url: url,
-                        group: extractGroup(lines[i])
-                    });
+                        group: group,
+                        category: category
+                    };
+                    
+                    allChannels.push(channel);
+                    
+                    // Organiza por categoria
+                    if (!channelsByCategory[category]) {
+                        channelsByCategory[category] = [];
+                    }
+                    channelsByCategory[category].push(channel);
                 }
             }
         }
@@ -306,47 +447,184 @@
         // Ordena alfabeticamente
         allChannels.sort((a, b) => a.name.localeCompare(b.name));
         
+        // Ordena canais dentro de cada categoria
+        Object.keys(channelsByCategory).forEach(cat => {
+            channelsByCategory[cat].sort((a, b) => a.name.localeCompare(b.name));
+        });
+        
         updateChannelCount();
-        renderCanais(allChannels);
+        renderCategoryFilters();
+        renderCanaisPorCategoria();
     }
     
-    function extractGroup(line) {
-        const match = line.match(/group-title="([^"]*)/);
-        return match ? match[1] : '';
-    }
-
-    function renderCanais(list) {
-        const container = document.getElementById('canal-list');
-        if (list.length === 0) {
-            container.innerHTML = '<div style="padding: 20px; text-align: center; opacity: 0.7;">Nenhum canal encontrado</div>';
-            return;
+    function normalizeCategory(group) {
+        if (!group) return 'outros';
+        
+        const normalized = group.toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/[^a-z0-9]/g, '');
+        
+        // Mapeia para categorias conhecidas
+        for (const key in categoryIcons) {
+            if (normalized.includes(key)) {
+                return key;
+            }
         }
         
-        container.innerHTML = list.map(c => `
-            <div class="canal-item" onclick="playCanal('${c.url}', this)">
-                <span class="channel-icon">📺</span>
-                <span>${escapeHtml(c.name)}</span>
-                <div class="status-indicator"></div>
-            </div>
-        `).join('');
+        return 'outros';
+    }
+    
+    function getCategoryIcon(category) {
+        return categoryIcons[category] || '📡 ' + capitalizeFirst(category);
+    }
+    
+    function capitalizeFirst(str) {
+        return str.charAt(0).toUpperCase() + str.slice(1);
+    }
+    
+    function renderCategoryFilters() {
+        const categories = Object.keys(channelsByCategory).sort();
+        
+        let html = `<button class="filter-btn active" data-category="todos" onclick="filtrarCategoria('todos')">
+            Todos (${allChannels.length})
+        </button>`;
+        
+        categories.forEach(cat => {
+            const count = channelsByCategory[cat].length;
+            const icon = getCategoryIcon(cat);
+            html += `<button class="filter-btn" data-category="${cat}" onclick="filtrarCategoria('${cat}')">
+                ${icon} (${count})
+            </button>`;
+        });
+        
+        categoryFiltersContainer.innerHTML = html;
+    }
+    
+    function filtrarCategoria(category) {
+        activeCategory = category;
+        localStorage.setItem('lastCategory', category);
+        
+        // Atualiza botões
+        document.querySelectorAll('.filter-btn').forEach(btn => {
+            btn.classList.remove('active');
+            if (btn.dataset.category === category) {
+                btn.classList.add('active');
+            }
+        });
+        
+        // Reseta busca
+        document.getElementById('search').value = '';
+        
+        // Renderiza
+        renderCanaisPorCategoria();
+    }
+    
+    function renderCanaisPorCategoria() {
+        const container = document.getElementById('canal-list');
+        container.innerHTML = '';
+        
+        let categoriesToShow;
+        
+        if (activeCategory === 'todos') {
+            categoriesToShow = Object.keys(channelsByCategory).sort();
+        } else {
+            categoriesToShow = [activeCategory];
+        }
+        
+        let totalChannels = 0;
+        
+        categoriesToShow.forEach(cat => {
+            const channels = channelsByCategory[cat] || [];
+            if (channels.length === 0) return;
+            
+            totalChannels += channels.length;
+            
+            // Cria header da categoria
+            const header = document.createElement('div');
+            header.className = 'category-header';
+            header.innerHTML = `
+                <span class="category-name">
+                    <span>${getCategoryIcon(cat)}</span>
+                    <span class="category-count">${channels.length}</span>
+                </span>
+                <span class="toggle-icon">▼</span>
+            `;
+            
+            // Toggle collapse
+            header.onclick = () => toggleCategory(cat);
+            
+            container.appendChild(header);
+            
+            // Cria conteúdo da categoria
+            const content = document.createElement('div');
+            content.className = 'category-content';
+            content.id = `category-${cat}`;
+            
+            content.innerHTML = channels.map(c => `
+                <div class="canal-item" onclick="playCanal('${c.url}', this)">
+                    <span class="channel-icon">📺</span>
+                    <span>${escapeHtml(c.name)}</span>
+                    <div class="status-indicator"></div>
+                </div>
+            `).join('');
+            
+            container.appendChild(content);
+            
+            // Define max-height para animação
+            content.style.maxHeight = content.scrollHeight + 'px';
+        });
+        
+        updateChannelCount(totalChannels);
+        
+        if (categoriesToShow.length === 0) {
+            container.innerHTML = '<div style="padding: 20px; text-align: center; opacity: 0.7;">Nenhum canal encontrado</div>';
+        }
+    }
+    
+    function toggleCategory(category) {
+        const header = event.currentTarget;
+        const content = document.getElementById(`category-${category}`);
+        
+        header.classList.toggle('collapsed');
+        content.classList.toggle('collapsed');
+        
+        if (content.classList.contains('collapsed')) {
+            content.style.maxHeight = '0';
+        } else {
+            content.style.maxHeight = content.scrollHeight + 'px';
+        }
     }
 
     function filtrarCanais() {
         const term = document.getElementById('search').value.toLowerCase().trim();
         
         debounce(() => {
-            if (term.length === 0) {
-                renderCanais(allChannels);
-                updateChannelCount();
-                return;
+            // Se houver busca, mostra lista plana sem categorias
+            if (term.length > 0) {
+                const filtered = allChannels.filter(c => 
+                    c.name.toLowerCase().includes(term) ||
+                    (c.group && c.group.toLowerCase().includes(term)) ||
+                    (c.category && c.category.toLowerCase().includes(term))
+                );
+                
+                const container = document.getElementById('canal-list');
+                if (filtered.length === 0) {
+                    container.innerHTML = '<div style="padding: 20px; text-align: center; opacity: 0.7;">Nenhum canal encontrado</div>';
+                } else {
+                    container.innerHTML = filtered.map(c => `
+                        <div class="canal-item" onclick="playCanal('${c.url}', this)">
+                            <span class="channel-icon">📺</span>
+                            <span>${escapeHtml(c.name)} <small style="opacity:0.6">(${getCategoryIcon(c.category)})</small></span>
+                            <div class="status-indicator"></div>
+                        </div>
+                    `).join('');
+                }
+                updateChannelCount(filtered.length);
+            } else {
+                // Sem busca, volta para visualização por categorias
+                renderCanaisPorCategoria();
             }
-            
-            const filtered = allChannels.filter(c => 
-                c.name.toLowerCase().includes(term) ||
-                (c.group && c.group.toLowerCase().includes(term))
-            );
-            renderCanais(filtered);
-            updateChannelCount(filtered.length);
         }, 300);
     }
     
@@ -494,10 +772,13 @@
         }
     });
     
-    // Carrega tema salvo
+    // Carrega tema salvo e última categoria
     window.addEventListener('DOMContentLoaded', () => {
         const savedTheme = localStorage.getItem('theme') || 'dark';
         document.body.dataset.theme = savedTheme;
+        
+        const savedCategory = localStorage.getItem('lastCategory') || 'todos';
+        // Não aplica automaticamente, mas mantém disponível
     });
 
     // Inicia carregamento
