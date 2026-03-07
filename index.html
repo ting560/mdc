@@ -457,6 +457,11 @@
         renderCanaisPorCategoria();
     }
     
+    function extractGroup(line) {
+        const match = line.match(/group-title="([^"]*)/);
+        return match ? match[1] : '';
+    }
+    
     function normalizeCategory(group) {
         if (!group) return 'outros';
         
