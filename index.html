@@ -6,25 +6,27 @@
     <title>IPTV MASTER</title>
     <script src="https://cdn.jsdelivr.net/npm/mpegts.js@latest/dist/mpegts.js"></script>
     <style>
-        /* Seus estilos originais - mantidos exatamente iguais */
         :root {
             --bg: #0f0f0f; --text: #ffffff; --sidebar: #1a1a1a;
             --accent: #00ff88; --hover: #2a2a2a; --border: #333;
+            --danger: #ff4444; --success: #00ff88; --warning: #ffaa00;
         }
         [data-theme="light"] {
             --bg: #f0f0f0; --text: #1a1a1a; --sidebar: #ffffff;
             --accent: #0088ff; --hover: #e0e0e0; --border: #ccc;
         }
 
+        /* Estrutura Base */
         * { margin: 0; padding: 0; box-sizing: border-box; }
         
         html, body { 
             width: 100%; height: 100%; 
             background: #000; color: var(--text); 
-            font-family: 'Segoe UI', sans-serif; 
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; 
             overflow: hidden; 
         }
 
+        /* Sidebar - Menu Lateral */
         #sidebar { 
             position: fixed; top: 0; left: 0; 
             width: 320px; height: 100%; 
@@ -32,8 +34,10 @@
             display: flex; flex-direction: column; 
             z-index: 2000;
             transition: transform 0.3s ease;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.3);
         }
         
+        /* Mobile: Esconde a barra por padrão */
         @media (max-width: 768px) {
             #sidebar { transform: translateX(-100%); width: 280px; }
             #sidebar.open { transform: translateX(0); }
@@ -45,26 +49,71 @@
             flex: 1; overflow-y: auto; padding: 10px;
             -webkit-overflow-scrolling: touch;
         }
+        
+        #canal-list-container::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        #canal-list-container::-webkit-scrollbar-track {
+            background: var(--bg);
+        }
+        
+        #canal-list-container::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 3px;
+        }
 
         input#search { 
             width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--border);
             background: var(--bg); color: var(--text); margin-top: 10px; outline: none;
+            transition: border-color 0.2s;
+        }
+        
+        input#search:focus {
+            border-color: var(--accent);
         }
 
         .btn-radio {
             width: 100%; padding: 12px; background: var(--accent); color: #000;
             border: none; font-weight: bold; cursor: pointer; border-radius: 6px; 
             margin-bottom: 15px; font-size: 13px;
+            transition: opacity 0.2s;
+        }
+        
+        .btn-radio:hover {
+            opacity: 0.9;
         }
 
         .canal-item { 
             padding: 12px; margin-bottom: 5px; border-radius: 6px; cursor: pointer;
             font-size: 14px; border-bottom: 1px solid var(--border);
             background: rgba(255,255,255,0.02);
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
-        .canal-item:hover { background: var(--hover); }
+        .canal-item:hover { background: var(--hover); transform: translateX(2px); }
         .canal-item.active { background: var(--accent); color: #000; font-weight: bold; }
+        .canal-item.loading { opacity: 0.6; pointer-events: none; }
+        
+        .channel-icon {
+            font-size: 16px;
+        }
+        
+        .status-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--success);
+            margin-left: auto;
+        }
+        
+        .status-indicator.error {
+            background: var(--danger);
+        }
 
+        /* Área Principal do Conteúdo */
         #main { 
             position: absolute; top: 0; right: 0;
             width: calc(100% - 320px); height: 100%; 
@@ -81,60 +130,86 @@
         }
         
         video { object-fit: contain; display: none; background: #000; }
+        
+        /* Loading Overlay */
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        
+        .loading-overlay.active {
+            display: flex;
+        }
+        
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        /* Error Message */
+        .error-message {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: var(--danger);
+            color: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            display: none;
+            z-index: 1001;
+        }
+        
+        .error-message.active {
+            display: block;
+        }
 
+        /* Botão Menu Mobile */
         #menu-toggle { 
             display: none; position: fixed; top: 15px; left: 15px; 
             z-index: 2100; padding: 10px 20px; background: var(--accent); 
             color: #000; border: none; cursor: pointer; border-radius: 50px;
             font-weight: bold; box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            transition: transform 0.2s;
+        }
+        
+        #menu-toggle:active {
+            transform: scale(0.95);
         }
 
         @media (max-width: 768px) { #menu-toggle { display: block; } }
-
-        /* --- NOVOS ESTILOS PARA O POPUP MOBILE --- */
-        #mobile-popup {
+        
+        /* Overlay para mobile */
+        .sidebar-overlay {
             display: none;
             position: fixed;
-            bottom: 30px;
-            left: 20px;
-            right: 20px;
-            background: var(--accent);
-            color: #000;
-            padding: 15px 20px;
-            border-radius: 60px;
-            font-weight: bold;
-            font-size: 18px;
-            text-align: center;
-            z-index: 2200;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
-            animation: pulse 1.5s infinite;
-            cursor: pointer;
-            border: 2px solid #fff;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1999;
         }
-
-        #mobile-popup::after {
-            content: "←";
-            font-size: 30px;
-            position: absolute;
-            left: 15px;
-            top: 50%;
-            transform: translateY(-50%);
-            animation: moveLeft 1s infinite alternate;
-        }
-
-        @keyframes pulse {
-            0% { transform: scale(1); background: var(--accent); }
-            50% { transform: scale(1.05); background: #ffaa00; }
-            100% { transform: scale(1); background: var(--accent); }
-        }
-
-        @keyframes moveLeft {
-            from { left: 15px; }
-            to { left: 10px; }
-        }
-
-        @media (min-width: 769px) {
-            #mobile-popup { display: none !important; }
+        
+        .sidebar-overlay.active {
+            display: block;
         }
     </style>
 </head>
@@ -142,18 +217,16 @@
 
 <button id="menu-toggle" onclick="toggleMenu()">☰ CANAIS</button>
 
-<!-- POPUP MOBILE -->
-<div id="mobile-popup" onclick="toggleMenu()">
-    📺 Quer assistir canais? Clique aqui
-</div>
-
 <aside id="sidebar">
     <div class="header">
         <div style="display:flex; justify-content:space-between; align-items:center;">
-            <h3 style="font-size: 16px;">IPTV MASTER</h3>
-            <button onclick="toggleTheme()" style="background:none; border:none; cursor:pointer; font-size:18px;">🌓</button>
+            <h3 style="font-size: 16px;">📺 IPTV MASTER</h3>
+            <button onclick="toggleTheme()" style="background:none; border:none; cursor:pointer; font-size:18px;" title="Alternar tema">🌓</button>
         </div>
-        <input type="text" id="search" placeholder="🔍 Buscar canal..." oninput="filtrarCanais()">
+        <input type="text" id="search" placeholder="🔍 Buscar canal..." oninput="filtrarCanais()" autocomplete="off">
+        <div style="margin-top: 8px; font-size: 11px; color: var(--text); opacity: 0.7;">
+            <span id="channel-count">0</span> canais disponíveis
+        </div>
     </div>
     
     <div id="canal-list-container">
@@ -167,49 +240,49 @@
         <iframe src="https://www.radiopositivafm.com.br/play/"></iframe>
     </div>
     <video id="videoPlayer" controls playsinline></video>
+    
+    <div class="loading-overlay" id="loading-overlay">
+        <div class="spinner"></div>
+    </div>
+    
+    <div class="error-message" id="error-message"></div>
 </main>
+
+<div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleMenu()"></div>
 
 <script>
     let player = null;
     let allChannels = [];
+    let currentChannelUrl = null;
     const videoElement = document.getElementById('videoPlayer');
     const contentArea = document.getElementById('content-area');
     const sidebar = document.getElementById('sidebar');
-    const mobilePopup = document.getElementById('mobile-popup');
+    const loadingOverlay = document.getElementById('loading-overlay');
+    const errorMessage = document.getElementById('error-message');
+    const channelCount = document.getElementById('channel-count');
+    const overlay = document.getElementById('sidebar-overlay');
 
-    // Controle de travamento
-    let stallInterval = null;
-    let stallCount = 0;
-    let lastCurrentTime = 0;
-    let currentChannelUrl = null;
-    let currentChannelElement = null;
-    let reloadTimeout = null;
-    let refreshTimer = null; // Timer para recarga preventiva aos 4:50
-
-    // Função para limpar tudo antes de recarregar
-    function cleanup() {
-        if (stallInterval) clearInterval(stallInterval);
-        stallInterval = null;
-        if (reloadTimeout) clearTimeout(reloadTimeout);
-        reloadTimeout = null;
-        if (refreshTimer) clearTimeout(refreshTimer);
-        refreshTimer = null;
-        if (player) {
-            player.pause();
-            player.unload();
-            player.destroy();
-            player = null;
-        }
+    // Debounce para busca
+    let searchTimeout = null;
+    function debounce(func, delay) {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(func, delay);
     }
 
     async function fetchM3U() {
+        showLoading();
         const url = "https://raw.githubusercontent.com/ting560/tv/refs/heads/main/minha_lista_canais.m3u";
         try {
             const res = await fetch(url);
+            if (!res.ok) throw new Error('Falha ao carregar');
             const data = await res.text();
             parseM3U(data);
+            hideLoading();
         } catch (err) {
-            document.getElementById('canal-list').innerText = "Erro ao carregar lista.";
+            console.error('Erro:', err);
+            document.getElementById('canal-list').innerText = "❌ Erro ao carregar lista. Verifique sua conexão.";
+            hideLoading();
+            showError('Não foi possível carregar os canais. Tente novamente.');
         }
     }
 
@@ -218,220 +291,217 @@
         allChannels = [];
         for (let i = 0; i < lines.length; i++) {
             if (lines[i].includes('#EXTINF')) {
-                const name = lines[i].split(',')[1] || "Canal";
+                const name = lines[i].split(',')[1] || "Canal sem nome";
                 const url = lines[i+1]?.trim();
-                if (url) allChannels.push({ name, url });
+                if (url && url.startsWith('http')) {
+                    allChannels.push({ 
+                        name: name.trim(), 
+                        url: url,
+                        group: extractGroup(lines[i])
+                    });
+                }
             }
         }
+        
+        // Ordena alfabeticamente
+        allChannels.sort((a, b) => a.name.localeCompare(b.name));
+        
+        updateChannelCount();
         renderCanais(allChannels);
+    }
+    
+    function extractGroup(line) {
+        const match = line.match(/group-title="([^"]*)/);
+        return match ? match[1] : '';
     }
 
     function renderCanais(list) {
         const container = document.getElementById('canal-list');
+        if (list.length === 0) {
+            container.innerHTML = '<div style="padding: 20px; text-align: center; opacity: 0.7;">Nenhum canal encontrado</div>';
+            return;
+        }
+        
         container.innerHTML = list.map(c => `
             <div class="canal-item" onclick="playCanal('${c.url}', this)">
-                📺 ${c.name}
+                <span class="channel-icon">📺</span>
+                <span>${escapeHtml(c.name)}</span>
+                <div class="status-indicator"></div>
             </div>
         `).join('');
     }
 
     function filtrarCanais() {
-        const term = document.getElementById('search').value.toLowerCase();
-        const filtered = allChannels.filter(c => c.name.toLowerCase().includes(term));
-        renderCanais(filtered);
+        const term = document.getElementById('search').value.toLowerCase().trim();
+        
+        debounce(() => {
+            if (term.length === 0) {
+                renderCanais(allChannels);
+                updateChannelCount();
+                return;
+            }
+            
+            const filtered = allChannels.filter(c => 
+                c.name.toLowerCase().includes(term) ||
+                (c.group && c.group.toLowerCase().includes(term))
+            );
+            renderCanais(filtered);
+            updateChannelCount(filtered.length);
+        }, 300);
+    }
+    
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+    
+    function updateChannelCount(count = allChannels.length) {
+        channelCount.textContent = count;
     }
 
     function abrirRadio() {
-        cleanup();
+        if (player) { 
+            if (player.isPlaying()) player.pause(); 
+            player.unload(); 
+            player.destroy();
+            player = null;
+        }
+        currentChannelUrl = null;
         videoElement.style.display = 'none';
         contentArea.innerHTML = '<iframe src="https://www.radiopositivafm.com.br/play/"></iframe>';
-        if(window.innerWidth <= 768) sidebar.classList.remove('open');
-        currentChannelUrl = null;
-        currentChannelElement = null;
-        // Esconde popup se estiver aberto (opcional)
-        if (mobilePopup) mobilePopup.style.display = 'none';
+        hideError();
+        if(window.innerWidth <= 768) {
+            sidebar.classList.remove('open');
+            overlay.classList.remove('active');
+        }
     }
 
-    // Função para recarregar o stream atual (chama playCanal novamente)
-    function reloadStream() {
-        if (!currentChannelUrl || !currentChannelElement) return;
-        if (reloadTimeout) return;
-        reloadTimeout = setTimeout(() => {
-            reloadTimeout = null;
-            console.log('Recarregando canal automaticamente...');
-            playCanal(currentChannelUrl, currentChannelElement);
-        }, 100);
-    }
-
-    // Função principal para tocar um canal (agora assíncrona)
-    async function playCanal(url, el) {
-        // Guarda referência do canal atual
-        currentChannelUrl = url;
-        currentChannelElement = el;
-
-        // Limpa tudo
-        cleanup();
-
-        // Prepara a interface
-        contentArea.innerHTML = '';
-        videoElement.style.display = 'block';
+    function playCanal(url, el) {
+        // Remove active de todos
         document.querySelectorAll('.canal-item').forEach(i => i.classList.remove('active'));
-        el.classList.add('active');
-        if(window.innerWidth <= 768) sidebar.classList.remove('open');
-
-        // Esconde o popup quando um canal é selecionado
-        if (mobilePopup) mobilePopup.style.display = 'none';
-
-        // Pequeno atraso para garantir que tudo foi limpo
-        await new Promise(r => setTimeout(r, 100));
-
-        if (!mpegts.getFeatureList().mseLivePlayback) {
-            alert('Seu navegador não suporta reprodução MSE ao vivo.');
+        
+        // Se já está tocando o mesmo canal, ignora
+        if (currentChannelUrl === url) {
+            el.classList.add('active');
             return;
         }
-
-        // Adiciona um parâmetro aleatório para evitar cache no proxy
-        const proxyUrl = `/api/proxy?url=${encodeURIComponent(url)}&_=${Date.now()}`;
-
-        // Cria o novo player
-        player = mpegts.createPlayer({ 
-            type: 'mse', 
-            isLive: true, 
-            url: proxyUrl
-        });
-
-        // Tratamento de erro: tenta recarregar
-        player.on('error', (err) => {
-            console.error('Erro no player, recarregando...', err);
-            reloadStream();
-        });
-
-        player.attachMediaElement(videoElement);
-        player.load();
-
-        // Tenta dar play com retry em caso de falha
-        const maxRetries = 3;
-        for (let i = 0; i < maxRetries; i++) {
-            try {
-                await player.play();
-                console.log('Play iniciado com sucesso');
-                break;
-            } catch (err) {
-                console.warn(`Tentativa ${i+1} de play falhou:`, err);
-                if (i === maxRetries - 1) {
-                    console.error('Não foi possível iniciar a reprodução após várias tentativas. Recarregando...');
-                    reloadStream();
-                    return;
-                }
-                await new Promise(r => setTimeout(r, 1000));
-            }
+        
+        currentChannelUrl = url;
+        el.classList.add('active');
+        
+        if(window.innerWidth <= 768) {
+            sidebar.classList.remove('open');
+            overlay.classList.remove('active');
         }
 
-        // Inicia a detecção de travamento (verifica a cada 1 segundo)
-        stallCount = 0;
-        lastCurrentTime = 0;
-        stallInterval = setInterval(() => {
-            if (!videoElement || videoElement.paused || videoElement.ended) return;
-
-            const currentTime = videoElement.currentTime;
-            if (currentTime === lastCurrentTime) {
-                stallCount++;
-                // Se ficou parado por 2 segundos (2 checks de 1s), recarrega
-                if (stallCount >= 2) {
-                    console.log('Vídeo parado por 2 segundos, recarregando...');
-                    reloadStream();
-                }
-            } else {
-                stallCount = 0;
-                lastCurrentTime = currentTime;
-            }
-        }, 1000);
-
-        // Também escuta o evento de stalled do vídeo (falta de dados)
-        videoElement.addEventListener('stalled', onStalled);
-        function onStalled() {
-            console.log('Evento stalled disparado, recarregando...');
-            videoElement.removeEventListener('stalled', onStalled);
-            reloadStream();
+        // Limpa player anterior
+        if (player) { 
+            player.unload(); 
+            player.destroy(); 
+            player = null;
         }
 
-        // Timeout de segurança: se após 10 segundos o currentTime ainda for 0, recarrega
-        setTimeout(() => {
-            if (videoElement && videoElement.currentTime === 0 && !videoElement.paused) {
-                console.log('Timeout de inicialização, recarregando...');
-                reloadStream();
-            }
+        showLoading();
+        hideError();
+        
+        contentArea.innerHTML = '';
+        videoElement.style.display = 'block';
+
+        // Configura timeout para erro
+        const loadTimeout = setTimeout(() => {
+            hideLoading();
+            showError('Tempo esgotado ao carregar o canal. Tente outro.');
+            el.classList.add('loading');
         }, 10000);
 
-        // --- NOVO: Recarga preventiva aos 4 minutos e 50 segundos (290 segundos) ---
-        // Se o vídeo chegar próximo dos 5 min, recarrega antes de travar
-        const checkTimeInterval = setInterval(() => {
-            if (!videoElement || videoElement.paused || videoElement.ended) return;
-            const currentTime = videoElement.currentTime;
-            // Se estiver entre 290 e 300 segundos (4:50 a 5:00), recarrega
-            if (currentTime >= 290 && currentTime < 300) {
-                console.log('Atingiu 4:50, recarregando preventivamente...');
-                clearInterval(checkTimeInterval);
-                reloadStream();
-            }
-        }, 1000);
-        // Guarda o intervalo para limpar depois
-        refreshTimer = checkTimeInterval;
-    }
+        // Handler para erro de carregamento
+        videoElement.onerror = () => {
+            clearTimeout(loadTimeout);
+            hideLoading();
+            showError('Erro ao reproduzir este canal. Tente outro.');
+            el.classList.add('loading');
+        };
+        
+        // Handler para sucesso
+        videoElement.onplaying = () => {
+            clearTimeout(loadTimeout);
+            hideLoading();
+            el.classList.remove('loading');
+        };
 
-    // Controle do popup mobile
-    function showMobilePopup() {
-        if (!mobilePopup) return;
-        // Mostra apenas em mobile e se a sidebar estiver fechada
-        if (window.innerWidth <= 768 && !sidebar.classList.contains('open')) {
-            mobilePopup.style.display = 'block';
-        } else {
-            mobilePopup.style.display = 'none';
+        try {
+            if (mpegts.getFeatureList().mseLivePlayback) {
+                player = mpegts.createPlayer({ 
+                    type: 'mse', 
+                    isLive: true, 
+                    url: `/api/proxy?url=${encodeURIComponent(url)}`,
+                    enableStashBuffer: false,
+                    autoCleanupSourceBuffer: true
+                });
+                
+                player.attachMediaElement(videoElement);
+                player.load();
+                player.play().catch(err => {
+                    console.error('Erro no playback:', err);
+                    hideLoading();
+                    showError('Erro ao iniciar reprodução.');
+                });
+            } else {
+                hideLoading();
+                showError('Seu navegador não suporta este formato de vídeo.');
+            }
+        } catch (err) {
+            console.error('Erro:', err);
+            hideLoading();
+            showError('Erro ao configurar o player.');
         }
     }
 
-    // Monitora mudanças de tamanho de tela e estado da sidebar
-    window.addEventListener('resize', showMobilePopup);
-    // Observa quando a sidebar abre/fecha
-    const observer = new MutationObserver(() => {
-        showMobilePopup();
-    });
-    observer.observe(sidebar, { attributes: true, attributeFilter: ['class'] });
-
-    // Mostra o popup quando a página carrega (se estiver em mobile e sidebar fechada)
-    setTimeout(showMobilePopup, 1000);
-
     function toggleTheme() {
-        document.body.dataset.theme = document.body.dataset.theme === 'dark' ? 'light' : 'dark';
+        const newTheme = document.body.dataset.theme === 'dark' ? 'light' : 'dark';
+        document.body.dataset.theme = newTheme;
+        localStorage.setItem('theme', newTheme);
     }
-
+    
     function toggleMenu() {
         sidebar.classList.toggle('open');
-        showMobilePopup(); // atualiza popup
+        overlay.classList.toggle('active');
     }
+    
+    function showLoading() {
+        loadingOverlay.classList.add('active');
+    }
+    
+    function hideLoading() {
+        loadingOverlay.classList.remove('active');
+    }
+    
+    function showError(msg) {
+        errorMessage.textContent = msg;
+        errorMessage.classList.add('active');
+        setTimeout(hideError, 5000);
+    }
+    
+    function hideError() {
+        errorMessage.classList.remove('active');
+    }
+    
+    // Fecha menu com ESC
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && sidebar.classList.contains('open')) {
+            toggleMenu();
+        }
+    });
+    
+    // Carrega tema salvo
+    window.addEventListener('DOMContentLoaded', () => {
+        const savedTheme = localStorage.getItem('theme') || 'dark';
+        document.body.dataset.theme = savedTheme;
+    });
 
+    // Inicia carregamento
     fetchM3U();
 </script>
-<!-- BEGIN AADS AD UNIT 2428457 -->
-
-<div style="position: absolute; z-index: 99999">
-      <input autocomplete="off" type="checkbox" id="aadsstickymlz0kph6" hidden />
-      <div style="padding-top: 0; padding-bottom: 60px;">
-        <div style="width:120px;height:60px;position:fixed;text-align:center;font-size:0;bottom:0;left:0;right:0;margin:auto">
-          <label for="aadsstickymlz0kph6" style="top: -24px; right: 0;; position: absolute;border-radius: 4px; background: rgba(248, 248, 249, 0.70); padding: 4px;z-index: 99999;cursor:pointer">
-            <svg fill="#000000" height="16px" width="16px" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 490 490">
-              <polygon points="456.851,0 245,212.564 33.149,0 0.708,32.337 212.669,245.004 0.708,457.678 33.149,490 245,277.443 456.851,490 489.292,457.678 277.331,245.004 489.292,32.337 "/>
-            </svg>
-          </label>
-          <div id="frame" style="width: 120px;margin: auto;z-index: 99998;height: auto"><iframe data-aa=2428457 src=//ad.a-ads.com/2428457/?size=120x60 style='border:0; padding:0; width:120px; height:60px; overflow:hidden; margin: auto'></iframe></div>
-        </div>
-        <style>
-      #aadsstickymlz0kph6:checked + div {
-        display: none;
-      }
-    </style>
-    </div></div>
-
-<!-- END AADS AD UNIT 2428457 -->
 </body>
 </html>
