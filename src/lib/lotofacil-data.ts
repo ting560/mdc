@@ -1,5 +1,6 @@
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
+import { writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
+import rawDataset from "../../data/lotofacil-results.json";
 import type { DrawnResult } from "./lotofacil";
 
 export type ContestResult = DrawnResult & {
@@ -17,22 +18,14 @@ type Dataset = {
   results: ContestResult[];
 };
 
-const DATA_FILE = join(process.cwd(), "data", "lotofacil-results.json");
+// O dataset é embutido no bundle via import estático (funciona em servidores
+// com filesystem read-only, como o Vercel). Os dados vêm do repositório em data/.
 const STALE_MS = 6 * 60 * 60 * 1000; // 6 horas
 
 const BASE = "https://api-loterias.moleniuk.com/api/lotofacil";
 const CAIXA_LATEST = "https://servicebus2.caixa.gov.br/portaldeloterias/api/lotofacil";
 
-function load(): Dataset {
-  if (!existsSync(DATA_FILE)) {
-    throw new Error(
-      "Arquivo de dados não encontrado. Rode `npm run data:fetch` para gerar os dados."
-    );
-  }
-  return JSON.parse(readFileSync(DATA_FILE, "utf8")) as Dataset;
-}
-
-let dataset: Dataset = load();
+let dataset: Dataset = rawDataset as Dataset;
 
 function isBuildPhase(): boolean {
   return process.env.NEXT_PHASE === "phase-production-build";
@@ -87,9 +80,14 @@ async function refreshFromApi(): Promise<Dataset> {
   }
 
   const fresh: Dataset = { meta, results };
-  mkdirSync(join(process.cwd(), "data"), { recursive: true });
-  writeFileSync(DATA_FILE, JSON.stringify(fresh), "utf8");
+  // atualiza em memória primeiro (funciona mesmo onde não dá para gravar em disco)
   dataset = fresh;
+  try {
+    mkdirSync(join(process.cwd(), "data"), { recursive: true });
+    writeFileSync(join(process.cwd(), "data", "lotofacil-results.json"), JSON.stringify(fresh), "utf8");
+  } catch {
+    // filesystem read-only (ex.: Vercel) — segue apenas com dados em memória
+  }
   return fresh;
 }
 
